@@ -77,14 +77,33 @@ function Invoke-SafeOpen {
 }
 
 # ==============================================================================
-# MOTEUR DE JOURNALISATION
+# MOTEUR DE JOURNALISATION (M1 : masquage UPN + chiffrement SecureString)
 # ==============================================================================
+function Mask-SensitiveData {
+    param([string]$InputText)
+    if (-not $InputText) { return $InputText }
+    $Masked = $InputText -replace '(?i)\b[\w\.\-]+@[\w\.\-]+\.\w+\b', '***'
+    return $Masked
+}
+
 function Add-SessionLog {
     param([string]$Level, [string]$Message, [string]$Details = "")
-    $LogEntry = "[$(Get-Date -Format 'HH:mm:ss')] [$Level] $Message"
-    if ($Details) { $LogEntry += " | DETAILS: $Details" }
+    # M1 : Masquer les UPNs et donneess sensibles avant ecriture
+    $SafeMessage = Mask-SensitiveData -InputText $Message
+    $SafeDetails = Mask-SensitiveData -InputText $Details
+    $LogEntry = "[$(Get-Date -Format 'HH:mm:ss')] [$Level] $SafeMessage"
+    if ($SafeDetails) { $LogEntry += " | DETAILS: $SafeDetails" }
     $GLOBAL:SESSION_LOGS += $LogEntry
-    try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch {}
+    try {
+        # M1 : Chiffrement du fichier de log via SecureString
+        $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
+        $Encrypted = $SecureLog | ConvertFrom-SecureString
+        Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
+    }
+    catch {
+        # Fallback : log en clair si chiffrement impossible
+        try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch {}
+    }
 }
 
 function Show-SessionLogs {

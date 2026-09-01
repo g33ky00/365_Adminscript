@@ -83,7 +83,7 @@ Invoke-Pester -Path ./Tests/
 - **H2** : Secure logging — masquage automatique des UPNs sensibles dans les journaux ❌ À faire
 - **H3** : Scope OAuth separation — modes ReadOnly/ReadWrite avec paramètre dynamique ✅
 - **H4** : Module pinning via PSGallery officielle — vérification des modules requis ⚠️ Partiel
-- **M1** : Encrypter les fichiers de logs via ConvertTo-SecureString ❌ À faire
+- **M1** : Masquage UPNs (`***`) + chiffrement logs via `ConvertFrom-SecureString` ✅
 - **M2** : Vérifier existence avant écriture + incrémenter nom si nécessaire ❌ À faire
 - **M3** : Vérifier somme de contrôle / source fiable + Ajouter -SkipModuleInstall ❌ À faire
 - **L1** : Refactorisation modulaire en modules PowerShell ❌ À faire
