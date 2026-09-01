@@ -150,7 +150,7 @@ function Export-OneDriveUsage {
         $Path = Get-UniqueFilePath -BasePath (Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv")
         $ODStats | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8BOM
         return $ODStats
-    } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red }
+    } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red; Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message }
 }
 
 function Export-FullAuditExcel {
@@ -166,10 +166,10 @@ function Export-FullAuditExcel {
             return
         }
         # H4: Verify PSGallery source and minimum version before install
-        if (-not (Verify-TrustedModule -ModuleName 'ImportExcel' -RequiredVersion $Script:REQUIRED_MODULES['ImportExcel'])) {
+        if (-not (Verify-TrustedModule -ModuleName 'ImportExcel' -RequiredVersion $Script:REQUIRED_MODULE_VERSIONS['ImportExcel'])) {
             return
         }
-        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['ImportExcel'] -ErrorAction Stop }
+        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULE_VERSIONS['ImportExcel'] -ErrorAction Stop }
         catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         Import-Module ImportExcel
     }

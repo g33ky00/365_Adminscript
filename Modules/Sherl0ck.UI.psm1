@@ -82,7 +82,7 @@ function Add-SessionLog {
     }
     catch {
         # Fallback: log in plaintext if encryption fails
-        try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch {}
+        try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch { Add-SessionLog "ERROR" "Log write fallback" $_.Exception.Message }
     }
 }
 

@@ -134,9 +134,9 @@ do {
     }
 } while (-not $GlobalQuit)
 
-try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch {}
-if ($GLOBAL:EXO_CONNECTED) { try { Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue } catch {} }
-try { if (Test-Path $GLOBAL:EDGE_TEMP_DIR) { Remove-Item -Path $GLOBAL:EDGE_TEMP_DIR -Recurse -Force -ErrorAction SilentlyContinue } } catch {}
+try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { Add-SessionLog "WARNING" "Disconnect MgGraph" $_.Exception.Message }
+if ($GLOBAL:EXO_CONNECTED) { try { Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue } catch { Add-SessionLog "WARNING" "Disconnect EXO" $_.Exception.Message } }
+try { if (Test-Path $GLOBAL:EDGE_TEMP_DIR) { Remove-Item -Path $GLOBAL:EDGE_TEMP_DIR -Recurse -Force -ErrorAction SilentlyContinue } } catch { Add-SessionLog "WARNING" "Edge temp cleanup" $_.Exception.Message }
 Write-Host "`n[EXIT] Secure shutdown complete." -ForegroundColor Green
 Start-Sleep -Seconds 1
 Clear-Host

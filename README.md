@@ -97,7 +97,8 @@ Invoke-Pester -Path ./Tests/
 - **Point 4** : Graph $batch (POST /v1.0/$batch, 20 req/batch) for Export-OneDriveUsage — reduces API calls by ~20x ✅
 - **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
 - **I2** : Multilingual support (fr-FR / en-US) ❌ To do
-- **I3** : Integrated documentation (help XML comments) ✅
+- **Point 9** : REQUIRED_MODULES converted to readonly hash + `Get-REQUIRED_MODULES()` getter (no longer exported as mutable variable) ✅
+- **Audit findings** : 15 empty catch blocks replaced with `Add-SessionLog` (error tracing) ✅
 
 ## License
 

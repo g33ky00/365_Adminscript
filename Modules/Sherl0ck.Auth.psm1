@@ -35,11 +35,18 @@
     Part of the 365_Adminscript modular architecture.
 #>
 
-# H4: Module version pinning constants
-$Script:REQUIRED_MODULES = @{
+# H4: Module version pinning constants — immutable (Point 9 fix)
+# RequiredModuleVersions are defined once and never mutated at runtime.
+$Script:REQUIRED_MODULE_VERSIONS = @{
     'Microsoft.Graph.Authentication' = '1.9.3'
     'ExchangeOnlineManagement'       = '3.2.0'
     'ImportExcel'                    = '7.8.0'
+}
+Set-Variable -Name REQUIRED_MODULE_VERSIONS -Value $Script:REQUIRED_MODULE_VERSIONS -Option ReadOnly -Scope Script -ErrorAction SilentlyContinue
+
+# Point 9 fix: Read-only accessor — prevents runtime mutation of module version pinning
+function Get-REQUIRED_MODULES {
+    $Script:REQUIRED_MODULE_VERSIONS
 }
 
 function Verify-TrustedModule {
@@ -153,19 +160,19 @@ function Connect-O365Core {
         if ((Read-Host "Install Microsoft Graph module now? (Y/N)") -match "^[Yy]$") {
             Write-Host " -> Verifying trusted source..." -ForegroundColor Cyan
             # H4: Verify PSGallery source and minimum version before install
-            if (-not (Verify-TrustedModule -ModuleName 'Microsoft.Graph.Authentication' -RequiredVersion $Script:REQUIRED_MODULES['Microsoft.Graph.Authentication'])) {
+            if (-not (Verify-TrustedModule -ModuleName 'Microsoft.Graph.Authentication' -RequiredVersion $Script:REQUIRED_MODULE_VERSIONS['Microsoft.Graph.Authentication'])) {
                 return
             }
             Write-Host " -> Installing..." -ForegroundColor Cyan
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['Microsoft.Graph.Authentication'] -ErrorAction Stop }
+            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULE_VERSIONS['Microsoft.Graph.Authentication'] -ErrorAction Stop }
             catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
 
-    try { Import-Module Microsoft.Graph.Authentication -ErrorAction Stop } catch {}
-    try { Set-MgGraphOption -DisableLoginByWAM $true -ErrorAction SilentlyContinue | Out-Null } catch {}
-    try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch {}
+    try { Import-Module Microsoft.Graph.Authentication -ErrorAction Stop } catch { Add-SessionLog "WARNING" "Import Module" "Microsoft.Graph.Authentication import error: $($_.Exception.Message)" }
+    try { Set-MgGraphOption -DisableLoginByWAM $true -ErrorAction SilentlyContinue | Out-Null } catch { Add-SessionLog "WARNING" "Set MgGraph Option" $_.Exception.Message }
+    try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { Add-SessionLog "WARNING" "Disconnect MgGraph" $_.Exception.Message }
 
     do { $GLOBAL:ADMIN_UPN = Read-Host "Global Administrator UPN" } until ($GLOBAL:ADMIN_UPN -match "@")
     $GLOBAL:TARGET_TENANT = ($GLOBAL:ADMIN_UPN -split "@")[1]
@@ -247,10 +254,10 @@ function Connect-O365Exchange {
         }
         if ((Read-Host "EXO module not found. Install? (Y/N)") -match "^[Yy]$") {
             # H4: Verify PSGallery source and minimum version before install
-            if (-not (Verify-TrustedModule -ModuleName 'ExchangeOnlineManagement' -RequiredVersion $Script:REQUIRED_MODULES['ExchangeOnlineManagement'])) {
+            if (-not (Verify-TrustedModule -ModuleName 'ExchangeOnlineManagement' -RequiredVersion $Script:REQUIRED_MODULE_VERSIONS['ExchangeOnlineManagement'])) {
                 return
             }
-            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['ExchangeOnlineManagement'] -ErrorAction Stop }
+            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULE_VERSIONS['ExchangeOnlineManagement'] -ErrorAction Stop }
             catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
@@ -267,5 +274,4 @@ function Connect-O365Exchange {
     }
 }
 
-Export-ModuleMember -Function Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule, Invoke-BrowserPrivate
-Export-ModuleMember -Variable REQUIRED_MODULES
+Export-ModuleMember -Function Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule, Invoke-BrowserPrivate, Get-REQUIRED_MODULES
