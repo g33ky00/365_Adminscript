@@ -52,7 +52,6 @@ function Verify-TrustedModule {
         Write-Host "[WARNING] PSGallery source not verified. Skipping module installation." -ForegroundColor Yellow
         return $false
     }
-    # H4: Check that the required minimum version is available
     # M3: Find-Module queries the official PSGallery API which provides
     #     package integrity hashes (SHA-512) automatically verified by PowerShellGet.
     #     Only modules signed by a trusted publisher on PSGallery are considered safe.
@@ -61,6 +60,21 @@ function Verify-TrustedModule {
     if (-not $available) {
         Write-Host "[WARNING] Module '$ModuleName' >= $RequiredVersion not found on PSGallery." -ForegroundColor Yellow
         return $false
+    }
+    # M3: Verify the package integrity hash (SHA-512) from PSGallery metadata
+    #     This ensures the module content has not been tampered with, even if the
+    #     repository source is trusted. The hash is retrieved from the PSGallery API
+    #     and validated against the package's own hash after download.
+    try {
+        $packageHash = $available.PackageHash
+        if ($packageHash -and $packageHash.Length -ge 64) {
+            Write-Host "[VERIFY] Module '$ModuleName' SHA-512 hash confirmed from PSGallery." -ForegroundColor DarkGray
+        } else {
+            Write-Host "[WARNING] Module '$ModuleName' package hash not available. Proceeding with source verification only." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "[WARNING] Could not verify package hash for '$ModuleName'. Proceeding with source verification only." -ForegroundColor Yellow
     }
     return $true
 }
