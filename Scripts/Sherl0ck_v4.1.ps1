@@ -29,6 +29,26 @@ param(
 Set-StrictMode -Off
 
 # =============================================================================
+# M2: Collision-safe file path generation
+# =============================================================================
+function Get-UniqueFilePath {
+    param(
+        [string]$BasePath
+    )
+    # M2: If the file exists, append a numeric suffix before the extension
+    if (-not (Test-Path $BasePath)) { return $BasePath }
+    $dir = Split-Path $BasePath -Parent
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($BasePath)
+    $ext = [System.IO.Path]::GetExtension($BasePath)
+    $counter = 1
+    do {
+        $newPath = Join-Path $dir "$name`_$counter$ext"
+        $counter++
+    } while (Test-Path $newPath)
+    return $newPath
+}
+
+# =============================================================================
 # H4: Module version pinning constants
 # =============================================================================
 $Script:REQUIRED_MODULES = @{
@@ -305,7 +325,7 @@ function Export-OneDriveUsage {
                 }
             }
         }
-        $Path = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv"
+        $Path = Get-UniqueFilePath -BasePath (Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv")
         $ODStats | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8BOM
         return $ODStats
     } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red }
@@ -325,7 +345,7 @@ function Export-FullAuditExcel {
     }
 
     $DateStr = Get-Date -Format "yyyyMMdd_HHmm"
-    $XlsxPath = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_FullAudit_$($GLOBAL:TENANT_NAME)_$DateStr.xlsx"
+    $XlsxPath = Get-UniqueFilePath -BasePath (Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_FullAudit_$($GLOBAL:TENANT_NAME)_$DateStr.xlsx")
 
     try {
         Write-Host " - Collecting Users..." -ForegroundColor DarkGray

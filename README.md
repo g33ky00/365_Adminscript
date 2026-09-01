@@ -84,7 +84,7 @@ Invoke-Pester -Path ./Tests/
 - **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
 - **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
 - **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
-- **M2** : Check existence before write + increment filename if needed ❌ To do
+- **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅
 - **M3** : Checksum/source verification + add `-SkipModuleInstall` ❌ To do
 - **L1** : Modular refactoring into PowerShell modules ❌ To do
 - **L2** : Extended unit tests (Pester) ❌ To do
