@@ -98,7 +98,35 @@ do {
 
     $MenuChoice = Read-Host "`n [>] Module"
     switch ($MenuChoice) {
-        "1" { Connect-O365Core -AuditMode $AuditMode -SkipModuleInstall:$SkipModuleInstall }
+        "1" {
+            Connect-O365Core -AuditMode $AuditMode -SkipModuleInstall:$SkipModuleInstall
+            if ($GLOBAL:GRAPH_CONNECTED) {
+                $IdentityQuit = $false
+                do {
+                    Write-Host "`n--- [ IDENTITY & SECURITY ] ---" -ForegroundColor Cyan
+                    Write-Host " [M]  MFA Status Report"
+                    Write-Host " [C]  Conditional Access Policies"
+                    Write-Host " [O]  OAuth/Application Registrations"
+                    Write-Host " [R]  Role-Based Access (Privileged Roles)"
+                    Write-Host " [E]  Export Identity Security Workbook"
+                    Write-Host " [0]  Back"
+                    $IdentityChoice = Read-Host "`n [>] Selection"
+                    switch ($IdentityChoice) {
+                        "M" { Get-MFAStatus -SkipModuleInstall:$SkipModuleInstall }
+                        "m" { Get-MFAStatus -SkipModuleInstall:$SkipModuleInstall }
+                        "C" { Get-ConditionalAccessPolicies -SkipModuleInstall:$SkipModuleInstall }
+                        "c" { Get-ConditionalAccessPolicies -SkipModuleInstall:$SkipModuleInstall }
+                        "O" { Get-OAuthApplications -SkipModuleInstall:$SkipModuleInstall }
+                        "o" { Get-OAuthApplications -SkipModuleInstall:$SkipModuleInstall }
+                        "R" { Get-RoleBasedAccess -SkipModuleInstall:$SkipModuleInstall }
+                        "r" { Get-RoleBasedAccess -SkipModuleInstall:$SkipModuleInstall }
+                        "E" { Export-IdentitySecurityExcel -SkipModuleInstall:$SkipModuleInstall }
+                        "e" { Export-IdentitySecurityExcel -SkipModuleInstall:$SkipModuleInstall }
+                        "0" { $IdentityQuit = $true }
+                    }
+                } while (-not $IdentityQuit)
+            }
+        }
         "2" { Connect-O365Exchange -SkipModuleInstall:$SkipModuleInstall }
         "3" { Show-MenuAudit -AuditMode $AuditMode -SkipModuleInstall:$SkipModuleInstall }
         "4" { Show-SessionLogs }

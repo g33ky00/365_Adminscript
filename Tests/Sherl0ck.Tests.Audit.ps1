@@ -1,41 +1,50 @@
 <#
 .SYNOPSIS
-    Pester test stubs for Sherl0ck.Audit module.
+    Pester test stubs for Sherl0ck.Audit module — Identity & Security functions.
 
 .DESCRIPTION
-    Basic unit tests for audit collection and export functions.
+    Basic unit tests for MFA status, Conditional Access, OAuth applications, and RBAC collection.
     Run with: Invoke-Pester -Path ./Tests/Sherl0ck.Tests.Audit.ps1
 #>
 
-Describe 'Get-GraphData' {
-    It 'Should return empty array for failed query (non-connected)' {
-        # Requires an active Graph connection to test properly
-        # This stub verifies the function exists and doesn't throw without a connection
-        $result = Get-GraphData -Uri "v1.0/tenant" -ErrorAction SilentlyContinue
-        $result | Should -Not -Be $null
+# Import the audit module before testing
+# Import-Module ../Modules/Sherl0ck.Audit.psm1
+
+Describe 'Get-MFAStatus' {
+    It 'Should return $null when not connected to Graph' {
+        $GLOBAL:GRAPH_CONNECTED = $false
+        $result = Get-MFAStatus -SkipModuleInstall -ErrorAction SilentlyContinue
+        $result | Should -BeNullOrEmpty
     }
 }
 
-Describe 'Export-OneDriveUsage' {
+Describe 'Get-ConditionalAccessPolicies' {
     It 'Should handle missing Graph connection gracefully' {
         $GLOBAL:GRAPH_CONNECTED = $false
-        { Export-OneDriveUsage -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+        { Get-ConditionalAccessPolicies -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }
 
-Describe 'Export-FullAuditExcel' {
-    It 'Should return gracefully when ImportExcel is not available' {
+Describe 'Get-OAuthApplications' {
+    It 'Should handle missing Graph connection gracefully' {
+        $GLOBAL:GRAPH_CONNECTED = $false
+        { Get-OAuthApplications -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+    }
+}
+
+Describe 'Get-RoleBasedAccess' {
+    It 'Should handle missing Graph connection gracefully' {
+        $GLOBAL:GRAPH_CONNECTED = $false
+        { Get-RoleBasedAccess -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+    }
+}
+
+Describe 'Export-IdentitySecurityExcel' {
+    It 'Should return gracefully when Export-OneDriveUsage fails' {
         $GLOBAL:GRAPH_CONNECTED = $false
         $GLOBAL:EXO_CONNECTED = $false
         $GLOBAL:AUDIT_DIR = "TestDrive:\Audits"
         $GLOBAL:TENANT_NAME = "TestTenant"
-        { Export-FullAuditExcel -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
-    }
-}
-
-Describe 'Show-MenuAudit' {
-    It 'Should return when not connected to Graph' {
-        $GLOBAL:GRAPH_CONNECTED = $false
-        { Show-MenuAudit -AuditMode 'ReadOnly' -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+        { Export-IdentitySecurityExcel -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }

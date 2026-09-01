@@ -11,6 +11,7 @@
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
 - 🛡 PowerShell modules pinned and verified via official PSGallery
 - 🧱 Modular and testable architecture with Pester
+- 👤 Identity & Security audit (MFA status, Conditional Access, OAuth apps, RBAC)
 
 ## OAuth Audit Modes (H3)
 
@@ -91,6 +92,8 @@ Invoke-Pester -Path ./Tests/
 - **L2** : Extended unit tests (Pester) — test stubs for all 4 modules ✅
 - **L3** : Simulation mode `-WhatIf` ❌ To do
 - **FIX-3** : Browser fallback (Edge→Firefox→Chrome) + explicit error if none available ✅
+- **FIX-6** : ReadWrite privileged scopes removed — no function consumes them ✅
+- **Point 8** : Identity & Security audit stubs (MFA, CA, OAuth, RBAC) + extended menu [1] ✅
 - **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
 - **I2** : Multilingual support (fr-FR / en-US) ❌ To do
 - **I3** : Integrated documentation (help XML comments) ✅
