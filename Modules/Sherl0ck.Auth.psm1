@@ -10,6 +10,26 @@
     H4: Module installation uses MinimumVersion pinning + PSGallery source verification.
     M3: -SkipModuleInstall switch bypasses auto-install.
 
+.PARAMETER AuditMode
+    Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
+
+.PARAMETER SkipModuleInstall
+    If set, skips automatic installation of required PowerShell modules.
+
+.PARAMETER ModuleName
+    The name of the PowerShell module to verify.
+
+.PARAMETER RequiredVersion
+    The minimum required version of the module.
+
+.EXAMPLE
+    PS> Connect-O365Core -AuditMode 'ReadOnly'
+    Connects to Microsoft Graph with read-only scopes.
+
+.EXAMPLE
+    PS> Connect-O365Core -AuditMode 'ReadWrite' -SkipModuleInstall
+    Connects with read-write scopes, skipping module installation.
+
 .NOTES
     Part of the 365_Adminscript modular architecture.
 #>

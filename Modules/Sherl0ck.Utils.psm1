@@ -6,6 +6,26 @@
     Contains helper functions for size conversion, file operations,
     and collision-safe file path generation (M2).
 
+.PARAMETER BasePath
+    The base file path to check. If the file exists, a numeric suffix is appended.
+
+.PARAMETER SizeObj
+    A size string or object from Exchange Online to parse into GB.
+
+.PARAMETER Bytes
+    A byte count to convert to GB.
+
+.PARAMETER FilePath
+    The path to open using the default application.
+
+.EXAMPLE
+    PS> Get-UniqueFilePath -BasePath "C:\temp\report.csv"
+    Returns "C:\temp\report_1.csv" if report.csv already exists.
+
+.EXAMPLE
+    PS> Convert-BytesToGB -Bytes 1073741824
+    Returns 1.0
+
 .NOTES
     Part of the 365_Adminscript modular architecture.
 #>

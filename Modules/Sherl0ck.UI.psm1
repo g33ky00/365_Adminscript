@@ -6,6 +6,26 @@
     Contains session logging with M1 security: UPN masking via
     Mask-SensitiveData and log encryption via ConvertFrom-SecureString.
 
+.PARAMETER InputText
+    The text to mask (UPNs/emails replaced with ***).
+
+.PARAMETER Level
+    The log level: INFO, WARN, ERROR, CRITICAL, etc.
+
+.PARAMETER Message
+    The log message text.
+
+.PARAMETER Details
+    Optional additional details to include in the log entry.
+
+.EXAMPLE
+    PS> Mask-SensitiveData -InputText "admin@contoso.com"
+    Returns "***"
+
+.EXAMPLE
+    PS> Add-SessionLog -Level "INFO" -Message "Export started" -Details "user@contoso.com"
+    Logs the event with UPN masked in encrypted log file.
+
 .NOTES
     Part of the 365_Adminscript modular architecture.
 #>

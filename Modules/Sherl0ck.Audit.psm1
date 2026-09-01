@@ -10,6 +10,23 @@
     M2: File paths use Get-UniqueFilePath to prevent overwrites.
     M3: ImportExcel installation uses MinimumVersion + SkipModuleInstall support.
 
+.PARAMETER Uri
+    The Microsoft Graph API endpoint URI to query.
+
+.PARAMETER SkipModuleInstall
+    If set, skips automatic installation of the ImportExcel module.
+
+.PARAMETER AuditMode
+    Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
+
+.EXAMPLE
+    PS> Get-GraphData -Uri "v1.0/users"
+    Returns all users from Microsoft Graph with automatic pagination.
+
+.EXAMPLE
+    PS> Export-FullAuditExcel -SkipModuleInstall
+    Generates the full audit workbook, skipping ImportExcel installation.
+
 .NOTES
     Part of the 365_Adminscript modular architecture.
 #>
