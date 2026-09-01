@@ -1,0 +1,10 @@
+{
+    "AuditMode": "ReadOnly",
+    "TenantId": "",
+    "LogRetentionDays": 30,
+    "ExportFormats": ["Excel", "CSV"],
+    "ThrottleRetryCount": 3,
+    "ThrottleRetryDelaySeconds": 5,
+    "EdgeProfilePath": "%TEMP%\\Sherl0ck_Edge_TempProfile",
+    "AuditOutputDir": "%USERPROFILE%\\Documents\\Sherl0ck_Audits"
+}

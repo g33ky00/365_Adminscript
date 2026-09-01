@@ -12,6 +12,16 @@
 - 🛡 Modules PowerShell épinglés & vérifiés via PSGallery officielle
 - 🧱 Architecture modulaire et testable avec Pester
 
+## Modes d'audit OAuth (H3)
+
+- **ReadOnly** (défaut) : scopes restreints à la lecture seule — minimise le surface d'attaque
+- **ReadWrite** : ajoute `Policy.ReadWrite.ConditionalAccess` et `User.ReadWrite.All` pour les opérations d'écriture critiques
+
+```powershell
+.\Scripts\Sherl0ck_v4.1.ps1                          # Mode ReadOnly par défaut
+.\Scripts\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # Mode ReadWrite
+```
+
 ## Prérequis
 
 - PowerShell 5.1 ou supérieur
@@ -69,13 +79,19 @@ Invoke-Pester -Path ./Tests/
 
 ## Corrections appliquées (Sherl0ck v4.1)
 
-- **H1** : MSAL conflict handling (Graph <> Exchange) — protection contre les collisions de contexte d'authentification
-- **H2** : Secure logging — masquage automatique des UPNs sensibles dans les journaux
-- **H3** : Graph API throttling mitigation — backoff exponentiel et retry sur erreurs 429
-- **H4** : Module pinning via PSGallery officielle — vérification des modules requis
-- **M1** : Convert-EXOSizeToGB parsing robuste (bytes/GB/MB)
-- **M2** : Export-FullAuditExcel resilient error handling
-- **M3** : Edge temp profile cleanup on exit
+- **H1** : MSAL conflict handling (Graph <> Exchange) — protection contre les collisions de contexte d'authentification ✅
+- **H2** : Secure logging — masquage automatique des UPNs sensibles dans les journaux ❌ À faire
+- **H3** : Scope OAuth separation — modes ReadOnly/ReadWrite avec paramètre dynamique ✅
+- **H4** : Module pinning via PSGallery officielle — vérification des modules requis ⚠️ Partiel
+- **M1** : Encrypter les fichiers de logs via ConvertTo-SecureString ❌ À faire
+- **M2** : Vérifier existence avant écriture + incrémenter nom si nécessaire ❌ À faire
+- **M3** : Vérifier somme de contrôle / source fiable + Ajouter -SkipModuleInstall ❌ À faire
+- **L1** : Refactorisation modulaire en modules PowerShell ❌ À faire
+- **L2** : Tests unitaires étendus (Pester) ❌ À faire
+- **L3** : Mode simulation -WhatIf ❌ À faire
+- **I1** : Externalisation de configuration (Sherl0ck_Config.json) ✅
+- **I2** : Support multilingue (fr-FR / en-US) ❌ À faire
+- **I3** : Documentation intégrée (commentaires help XML) ⚠️ Partiel
 
 ## Licence
 

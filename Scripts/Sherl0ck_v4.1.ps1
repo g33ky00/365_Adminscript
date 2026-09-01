@@ -3,10 +3,28 @@
 .SYNOPSIS
     Sherl0ck v4.1 - Administration Unifiee M365 (Entra ID, Exchange, Intune)
     Audit complet, gestion du Throttling Graph, Export Excel et protection des Handles.
+
+.DESCRIPTION
+    Sherl0ck v4.1 est un outil d'administration et d'audit unifie pour Microsoft 365.
+    Il supporte deux modes d'audit OAuth : ReadOnly (scopes en lecture seule) et
+    ReadWrite (scopes en lecture/ecriture). Le mode par defaut est ReadOnly afin de
+    minimiser le surface d'attaque.
+
+.PARAMETER AuditMode
+    Specifie le mode d'audit : 'ReadOnly' (defaut) ou 'ReadWrite'.
+    ReadOnly utilise uniquement des scopes de lecture pour se limter aux operations
+    d'audit. ReadWrite ajoute les scopes d_critiques en_tant que Policy.ReadWrite.* et User.ReadWrite.*.
+
+.EXAMPLE
+    .\Sherl0ck_v4.1.ps1                          # Mode ReadOnly par defaut
+    .\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # Mode ReadWrite (ecriture)
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('ReadOnly','ReadWrite')]
+    [string]$AuditMode = 'ReadOnly'
+)
 
 Set-StrictMode -Off
 
@@ -106,7 +124,35 @@ function Connect-O365Core {
     do { $GLOBAL:ADMIN_UPN = Read-Host "UPN Administrateur Global" } until ($GLOBAL:ADMIN_UPN -match "@")
     $GLOBAL:TARGET_TENANT = ($GLOBAL:ADMIN_UPN -split "@")[1]
 
-    $Scopes = @("Policy.ReadWrite.ConditionalAccess", "Policy.Read.All", "User.ReadWrite.All", "Organization.Read.All", "Domain.Read.All", "Device.Read.All", "Directory.Read.All", "Reports.Read.All", "Sites.Read.All", "Files.Read.All", "AuditLog.Read.All", "RoleManagement.Read.Directory", "Application.Read.All")
+    # Scopes de base (ReadOnly) pour toutes les operations d'audit
+    $ReadOnlyScopes = @(
+        "Policy.Read.All",
+        "User.Read.All",
+        "Organization.Read.All",
+        "Domain.Read.All",
+        "Device.Read.All",
+        "Directory.Read.All",
+        "Reports.Read.All",
+        "Sites.Read.All",
+        "Files.Read.All",
+        "AuditLog.Read.All",
+        "RoleManagement.Read.Directory",
+        "Application.Read.All"
+    )
+
+    # Scopes supplementaires ReadWrite (demande privilegiee)
+    $ReadWriteScopes = @(
+        "Policy.ReadWrite.ConditionalAccess",
+        "User.ReadWrite.All"
+    )
+
+    if ($AuditMode -eq 'ReadWrite') {
+        $Scopes = $ReadOnlyScopes + $ReadWriteScopes
+        Write-Host "[AUTH] Mode ReadWrite : scopes d_critiques activ_s (Policy.ReadWrite.*, User.ReadWrite.All)" -ForegroundColor Yellow
+    } else {
+        $Scopes = $ReadOnlyScopes
+        Write-Host "[AUTH] Mode ReadOnly : scopes restreints a la lecture seule" -ForegroundColor Green
+    }
 
     Write-Host "`n[AUTH] Ouverture Edge en navigation privee..." -ForegroundColor Yellow
     try { Start-Process msedge.exe -ArgumentList "--inprivate --new-window --user-data-dir=`"$GLOBAL:EDGE_TEMP_DIR`" https://login.microsoft.com/device" -ErrorAction SilentlyContinue } catch {}
