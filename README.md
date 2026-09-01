@@ -1,0 +1,86 @@
+# 365_Adminscript
+
+🛠 Un outil PowerShell avancé pour l'administration et l'audit unifié de Microsoft 365 (Entra ID, Exchange Online, Intune).
+
+## Fonctionnalités clés
+
+- 🔐 Authentification Graph & Exchange en mode device code
+- 🧾 Export complet des audits vers Excel (Utilisateurs, MFA, Appareils, Licences, Domaines, OneDrive)
+- 📊 Gestion intelligente du throttling Graph API
+- 🧼 Journalisation sécurisée masquant les UPNs sensibles
+- 📁 Gestion des conflits d'authentification MSAL (Graph <> Exchange)
+- 🛡 Modules PowerShell épinglés & vérifiés via PSGallery officielle
+- 🧱 Architecture modulaire et testable avec Pester
+
+## Prérequis
+
+- PowerShell 5.1 ou supérieur
+- Compte administrateur Microsoft 365
+- Accès aux scopes suivants :
+  - Policy.Read.All
+  - User.Read.All
+  - Organization.Read.All
+  - AuditLog.Read.All
+  - RoleManagement.Read.Directory
+
+## Installation
+
+Clonez le dépôt :
+```bash
+git clone https://github.com/g33ky00/365_Adminscript.git
+cd 365_Adminscript
+```
+
+Exécutez le script principal :
+```powershell
+.\Scripts\Sherl0ck_v4.1.ps1
+```
+
+Les modules requis seront téléchargés automatiquement depuis la galerie PowerShell officielle.
+
+## Structure du projet
+
+```
+365_Adminscript/
+├── Scripts/
+│   └── Sherl0ck_v4.1.ps1          # Point d'entrée principal
+├── Modules/
+│   ├── Sherl0ck.Utils.psm1        # Utilitaires et helpers
+│   ├── Sherl0ck.UI.psm1           # Interface utilisateur et logs
+│   ├── Sherl0ck.Auth.psm1         # Authentification Graph/EXO
+│   └── Sherl0ck.Audit.psm1        # Collecte et export audit
+├── Config/
+│   └── config.json.example        # Modèle de configuration externe
+├── Tests/
+│   ├── Sherl0ck.Tests.Utils.ps1
+│   ├── Sherl0ck.Tests.UI.ps1
+│   ├── Sherl0ck.Tests.Auth.ps1
+│   └── Sherl0ck.Tests.Audit.ps1
+├── README.md
+└── LICENSE
+```
+
+## Tests
+
+Utilise Pester pour valider chaque module indépendamment :
+```powershell
+Invoke-Pester -Path ./Tests/
+```
+
+## Corrections appliquées (Sherl0ck v4.1)
+
+- **H1** : MSAL conflict handling (Graph <> Exchange) — protection contre les collisions de contexte d'authentification
+- **H2** : Secure logging — masquage automatique des UPNs sensibles dans les journaux
+- **H3** : Graph API throttling mitigation — backoff exponentiel et retry sur erreurs 429
+- **H4** : Module pinning via PSGallery officielle — vérification des modules requis
+- **M1** : Convert-EXOSizeToGB parsing robuste (bytes/GB/MB)
+- **M2** : Export-FullAuditExcel resilient error handling
+- **M3** : Edge temp profile cleanup on exit
+
+## Licence
+
+MIT - Voir LICENSE pour plus d'informations.
+
+## Crédits
+
+Développé par g33ky00 — basé sur l'outil Sherl0ck v4.1.
