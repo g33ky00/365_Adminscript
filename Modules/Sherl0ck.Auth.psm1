@@ -100,6 +100,35 @@ function Verify-TrustedModule {
     return $true
 }
 
+# Point 3: Fallback cascade for private browsing browser launch
+# Tries Edge → Firefox → Chrome. Returns $true if any browser launched, $false otherwise.
+function Invoke-BrowserPrivate {
+    param([string]$Uri)
+
+    # Edge (stable)
+    $edgePath = "msedge.exe"
+    if (Get-Command $edgePath -ErrorAction SilentlyContinue) {
+        try { Start-Process $edgePath -ArgumentList "--inprivate --new-window --user-data-dir=`"$GLOBAL:EDGE_TEMP_DIR`" $Uri" -ErrorAction Stop; return $true }
+        catch { Write-Host "[WARNING] Edge launch failed: $($_.Exception.Message)" -ForegroundColor Yellow }
+    }
+
+    # Firefox
+    $firefoxPath = "firefox.exe"
+    if (Get-Command $firefoxPath -ErrorAction SilentlyContinue) {
+        try { Start-Process $firefoxPath -ArgumentList "-private-window $Uri" -ErrorAction Stop; return $true }
+        catch { Write-Host "[WARNING] Firefox launch failed: $($_.Exception.Message)" -ForegroundColor Yellow }
+    }
+
+    # Chrome
+    $chromePath = "chrome.exe"
+    if (Get-Command $chromePath -ErrorAction SilentlyContinue) {
+        try { Start-Process $chromePath -ArgumentList "--incognito --new-window $Uri" -ErrorAction Stop; return $true }
+        catch { Write-Host "[WARNING] Chrome launch failed: $($_.Exception.Message)" -ForegroundColor Yellow }
+    }
+
+    return $false
+}
+
 function Connect-O365Core {
     param(
         [ValidateSet('ReadOnly','ReadWrite')]
@@ -170,8 +199,15 @@ function Connect-O365Core {
         Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
     }
 
-    Write-Host "`n[AUTH] Opening Edge in private browsing..." -ForegroundColor Yellow
-    try { Start-Process msedge.exe -ArgumentList "--inprivate --new-window --user-data-dir=`"$GLOBAL:EDGE_TEMP_DIR`" https://login.microsoftonline.com/device" -ErrorAction SilentlyContinue } catch {}
+    Write-Host "`n[AUTH] Opening browser in private browsing..." -ForegroundColor Yellow
+    # Point 3: Fallback cascade: Edge → Firefox → Chrome → explicit error
+    $browserLaunched = Invoke-BrowserPrivate -Uri "https://login.microsoftonline.com/device"
+    if (-not $browserLaunched) {
+        Write-Host "`n[ERROR] No supported browser found. Please open the following URL manually in any browser:" -ForegroundColor Red
+        Write-Host "  https://login.microsoftonline.com/device" -ForegroundColor Yellow
+        Write-Host "`n  Supported browsers: Microsoft Edge, Firefox, Google Chrome" -ForegroundColor DarkGray
+        Read-Host "Press Enter once you have opened the URL..."
+    }
 
     try { Connect-MgGraph -Scopes $Scopes -TenantId $GLOBAL:TARGET_TENANT -UseDeviceAuthentication -ContextScope Process -NoWelcome }
     catch { Write-Host "`n[ERROR] Graph connection failed: $($_.Exception.Message)" -ForegroundColor Red; Read-Host "Press Enter to continue"; return }
@@ -232,5 +268,5 @@ function Connect-O365Exchange {
     }
 }
 
-Export-ModuleMember -Function Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule
+Export-ModuleMember -Function Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule, Invoke-BrowserPrivate
 Export-ModuleMember -Variable REQUIRED_MODULES
