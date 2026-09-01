@@ -13,7 +13,7 @@
 .PARAMETER AuditMode
     Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
     ReadOnly uses only read scopes to limit operations to auditing.
-    ReadWrite adds privileged write scopes such as Policy.ReadWrite.* and User.ReadWrite.*.
+    ReadWrite is reserved for future write operations (currently warns that no write functions are implemented).
 
 .PARAMETER SkipModuleInstall
     If set, skips automatic installation of required PowerShell modules.
