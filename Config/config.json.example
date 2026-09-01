@@ -1,5 +1,7 @@
 {
     "AuditMode": "ReadOnly",
+    "SkipModuleInstall": false,
+    "ModuleSource": "PSGallery",
     "TenantId": "",
     "LogRetentionDays": 30,
     "ExportFormats": ["Excel", "CSV"],

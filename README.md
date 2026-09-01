@@ -9,9 +9,9 @@
 - 📊 Intelligent Graph API throttling management
 - 🧼 Secure logging that masks sensitive UPNs + portable AES key encryption (key file in separate `Sherl0ck_Secrets` directory with explicit NTFS ACL)
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
-- 🛡 PowerShell modules pinned and verified via official PSGallery
-- 🧱 Modular and testable architecture with Pester
-- 👤 Identity & Security audit (MFA status, Conditional Access, OAuth apps, RBAC)
+- 🛡 PowerShell modules pinned and verified via official PSGallery (MinimumVersion + SHA-512 hash comparison)
+- 🧱 Modular and testable architecture with Pester (4 modules + entry point + 4 test files)
+- 👤 Identity & Security audit (MFA status, Conditional Access policies, OAuth applications, RBAC)
 
 ## OAuth Audit Modes (H3)
 
@@ -31,8 +31,15 @@
   - Policy.Read.All
   - User.Read.All
   - Organization.Read.All
+  - Domain.Read.All
+  - Device.Read.All
+  - Directory.Read.All
+  - Reports.Read.All
+  - Sites.Read.All
+  - Files.Read.All
   - AuditLog.Read.All
   - RoleManagement.Read.Directory
+  - Application.Read.All
 
 ## Installation
 
@@ -47,26 +54,44 @@ Run the main script:
 .\Scripts\Sherl0ck_v4.1.ps1
 ```
 
-Required modules will be downloaded automatically from the official PowerShell Gallery.
+Required PowerShell modules are downloaded automatically from the official PowerShell Gallery:
+- `Microsoft.Graph.Authentication` (MinimumVersion: 1.9.3)
+- `ExchangeOnlineManagement` (MinimumVersion: 3.2.0)
+- `ImportExcel` (MinimumVersion: 7.8.0)
+
+To skip automatic module installation (air-gapped/secure environments):
+```powershell
+.\Scripts\Sherl0ck_v4.1.ps1 -SkipModuleInstall
+```
+
+## Main Menu
+
+```
+[ 1 ] IDENTITY & SECURITY   (MFA, Conditional Access, OAuth apps, RBAC)
+[ 2 ] EXCHANGE ONLINE        (Mailboxes, Quotas, Redirects)
+[ 3 ] M365 AUDIT             (Complete collection + Excel Export)
+[ 4 ] SESSION LOGS          (Logs & errors)
+[ 0 ] DISCONNECT & QUIT
+```
 
 ## Project Structure
 
 ```
 365_Adminscript/
 ├── Scripts/
-│   └── Sherl0ck_v4.1.ps1          # Main entry point
+│   └── Sherl0ck_v4.1.ps1          # Main entry point (no functions defined, imports modules)
 ├── Modules/
-│   ├── Sherl0ck.Utils.psm1        # Utilities and helpers
-│   ├── Sherl0ck.UI.psm1           # User interface and logging
-│   ├── Sherl0ck.Auth.psm1         # Graph/Exchange authentication
-│   └── Sherl0ck.Audit.psm1        # Audit collection and export
+│   ├── Sherl0ck.Utils.psm1        # Utilities: Convert-EXOSizeToGB, Convert-BytesToGB, Invoke-SafeOpen, Get-UniqueFilePath
+│   ├── Sherl0ck.UI.psm1           # User interface: Mask-SensitiveData, Add-SessionLog, Show-SessionLogs
+│   ├── Sherl0ck.Auth.psm1         # Graph/Exchange auth: Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule, Invoke-BrowserPrivate, Get-REQUIRED_MODULES
+│   └── Sherl0ck.Audit.psm1        # Audit: Get-GraphData, Export-OneDriveUsage, Export-FullAuditExcel, Show-MenuAudit, Get-MFAStatus, Get-ConditionalAccessPolicies, Get-OAuthApplications, Get-RoleBasedAccess, Export-IdentitySecurityExcel
 ├── Config/
-│   └── config.json.example        # External configuration template
+│   └── config.json.example        # Configuration template (SkipModuleInstall, ModuleSource)
 ├── Tests/
-│   ├── Sherl0ck.Tests.Utils.ps1
-│   ├── Sherl0ck.Tests.UI.ps1
-│   ├── Sherl0ck.Tests.Auth.ps1
-│   └── Sherl0ck.Tests.Audit.ps1
+│   ├── Sherl0ck.Tests.Utils.ps1    # Pester tests for 4 Utils functions
+│   ├── Sherl0ck.Tests.UI.ps1       # Pester tests for 3 UI functions
+│   ├── Sherl0ck.Tests.Auth.ps1     # Pester tests for 4 Auth functions
+│   └── Sherl0ck.Tests.Audit.ps1    # Pester tests for 5 Identity + 4 core Audit functions
 ├── README.md
 └── LICENSE
 ```
@@ -95,10 +120,14 @@ Invoke-Pester -Path ./Tests/
 - **FIX-6** : ReadWrite privileged scopes removed — no function consumes them ✅
 - **Point 8** : Identity & Security audit stubs (MFA, CA, OAuth, RBAC) + extended menu [1] ✅
 - **Point 4** : Graph $batch (POST /v1.0/$batch, 20 req/batch) for Export-OneDriveUsage — reduces API calls by ~20x ✅
-- **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
-- **I2** : Multilingual support (fr-FR / en-US) ❌ To do
-- **Point 9** : REQUIRED_MODULES converted to readonly hash + `Get-REQUIRED_MODULES()` getter (no longer exported as mutable variable) ✅
+- **Point 2** : Set-StrictMode -Off → -Version 3.0 (enables variable/property strict checking) ✅
+- **Point 1** : DPAPI-only encryption → portable AES key (key file in separate `Sherl0ck_Secrets` directory + explicit NTFS ACL) ✅
+- **FIX-7** : Silent error loss in Export-OneDriveUsage → Add-SessionLog + ODStats entry ✅
 - **Audit findings** : 15 empty catch blocks replaced with `Add-SessionLog` (error tracing) ✅
+- **I1** : Configuration externalization (`Config/config.json.example`) ✅
+- **I2** : Multilingual support (fr-FR / en-US) ❌ To do
+- **Point 9** : REQUIRED_MODULE_VERSIONS converted to readonly hash via `Set-Variable -Option ReadOnly` + `Get-REQUIRED_MODULES()` getter function (no longer exported as mutable variable) ✅
+- **I3** : Integrated documentation (help XML comments) ✅
 
 ## License
 
