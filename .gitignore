@@ -1,0 +1,14 @@
+# PowerShell logs and caches
+*.log
+*.tmp
+*.bak
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# PowerShell artifacts
+*.psd1xml
+*.mof

@@ -1,23 +1,23 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Sherl0ck v4.1 - Administration Unifiee M365 (Entra ID, Exchange, Intune)
-    Audit complet, gestion du Throttling Graph, Export Excel et protection des Handles.
+    Sherl0ck v4.1 - Unified M365 Administration (Entra ID, Exchange, Intune)
+    Full audit, Graph throttling management, Excel export, and handle protection.
 
 .DESCRIPTION
-    Sherl0ck v4.1 est un outil d'administration et d'audit unifie pour Microsoft 365.
-    Il supporte deux modes d'audit OAuth : ReadOnly (scopes en lecture seule) et
-    ReadWrite (scopes en lecture/ecriture). Le mode par defaut est ReadOnly afin de
-    minimiser le surface d'attaque.
+    Sherl0ck v4.1 is a unified administration and audit tool for Microsoft 365.
+    It supports two OAuth audit modes: ReadOnly (read-only scopes) and
+    ReadWrite (read/write scopes). The default mode is ReadOnly to minimize
+    the attack surface.
 
 .PARAMETER AuditMode
-    Specifie le mode d'audit : 'ReadOnly' (defaut) ou 'ReadWrite'.
-    ReadOnly utilise uniquement des scopes de lecture pour se limter aux operations
-    d'audit. ReadWrite ajoute les scopes d_critiques en_tant que Policy.ReadWrite.* et User.ReadWrite.*.
+    Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
+    ReadOnly uses only read scopes to limit operations to auditing.
+    ReadWrite adds privileged write scopes such as Policy.ReadWrite.* and User.ReadWrite.*.
 
 .EXAMPLE
-    .\Sherl0ck_v4.1.ps1                          # Mode ReadOnly par defaut
-    .\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # Mode ReadWrite (ecriture)
+    .\Sherl0ck_v4.1.ps1                          # ReadOnly mode (default)
+    .\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # ReadWrite mode
 #>
 
 [CmdletBinding()]
@@ -28,9 +28,9 @@ param(
 
 Set-StrictMode -Off
 
-# ==============================================================================
-# VARIABLES GLOBALES
-# ==============================================================================
+# =============================================================================
+# GLOBAL VARIABLES
+# =============================================================================
 $GLOBAL:POLICY_STATE        = "enabledForReportingButNotEnforced"
 $GLOBAL:TARGET_TENANT       = ""
 $GLOBAL:TENANT_NAME         = ""
@@ -49,9 +49,9 @@ $GLOBAL:EDGE_TEMP_DIR       = Join-Path $env:TEMP "Sherl0ck_Edge_TempProfile"
 $GLOBAL:AUDIT_DIR           = Join-Path $env:USERPROFILE "Documents\Sherl0ck_Audits"
 if (-not (Test-Path $GLOBAL:AUDIT_DIR)) { New-Item -ItemType Directory -Force -Path $GLOBAL:AUDIT_DIR | Out-Null }
 
-# ==============================================================================
-# UTILITAIRES & PARSERS
-# ==============================================================================
+# =============================================================================
+# UTILITIES & PARSERS
+# =============================================================================
 function Convert-EXOSizeToGB {
     param($SizeObj)
     if (-not $SizeObj) { return 0 }
@@ -76,9 +76,9 @@ function Invoke-SafeOpen {
     }
 }
 
-# ==============================================================================
-# MOTEUR DE JOURNALISATION (M1 : masquage UPN + chiffrement SecureString)
-# ==============================================================================
+# =============================================================================
+# LOGGING ENGINE (M1: UPN masking + SecureString encryption)
+# =============================================================================
 function Mask-SensitiveData {
     param([string]$InputText)
     if (-not $InputText) { return $InputText }
@@ -88,62 +88,62 @@ function Mask-SensitiveData {
 
 function Add-SessionLog {
     param([string]$Level, [string]$Message, [string]$Details = "")
-    # M1 : Masquer les UPNs et donneess sensibles avant ecriture
+    # M1: Mask sensitive UPNs before writing
     $SafeMessage = Mask-SensitiveData -InputText $Message
     $SafeDetails = Mask-SensitiveData -InputText $Details
     $LogEntry = "[$(Get-Date -Format 'HH:mm:ss')] [$Level] $SafeMessage"
     if ($SafeDetails) { $LogEntry += " | DETAILS: $SafeDetails" }
     $GLOBAL:SESSION_LOGS += $LogEntry
     try {
-        # M1 : Chiffrement du fichier de log via SecureString
+        # M1: Encrypt log file via SecureString
         $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
         $Encrypted = $SecureLog | ConvertFrom-SecureString
         Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
     }
     catch {
-        # Fallback : log en clair si chiffrement impossible
+        # Fallback: log in plaintext if encryption fails
         try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch {}
     }
 }
 
 function Show-SessionLogs {
-    Write-Host "`n--- JOURNAUX DE SESSION (AUDIT et ERREURS) ---" -ForegroundColor Cyan
-    Write-Host " Dossier : $GLOBAL:LOG_DIR" -ForegroundColor Yellow
-    if ($GLOBAL:SESSION_LOGS.Count -eq 0) { Write-Host " [INFO] Aucun evenement." -ForegroundColor DarkGray } 
-    else { foreach ($Log in $GLOBAL:SESSION_LOGS) { Write-Host " $Log" -ForegroundColor $(if($Log -match "\[ERREUR\]"){"Red"}elseif($Log -match "\[ATTENTION\]"){"Yellow"}else{"DarkGray"}) } }
-    $Choice = Read-Host "`n[O] Ouvrir le dossier | [0] Retour"
+    Write-Host "`n--- SESSION LOGS (AUDIT & ERRORS) ---" -ForegroundColor Cyan
+    Write-Host " Directory : $GLOBAL:LOG_DIR" -ForegroundColor Yellow
+    if ($GLOBAL:SESSION_LOGS.Count -eq 0) { Write-Host " [INFO] No events." -ForegroundColor DarkGray }
+    else { foreach ($Log in $GLOBAL:SESSION_LOGS) { Write-Host " $Log" -ForegroundColor $(if($Log -match "\[ERROR\]"){"Red"}elseif($Log -match "\[WARNING\]"){"Yellow"}else{"DarkGray"}) } }
+    $Choice = Read-Host "`n[O] Open directory | [0] Back"
     if ($Choice -match "^[Oo]$") { Invoke-SafeOpen -FilePath $GLOBAL:LOG_DIR }
 }
 
-# ==============================================================================
-# AUTHENTIFICATION — GRAPH & EXCHANGE
-# ==============================================================================
+# =============================================================================
+# AUTHENTICATION — GRAPH & EXCHANGE
+# =============================================================================
 function Connect-O365Core {
     if ($GLOBAL:GRAPH_CONNECTED) { return }
     if ($GLOBAL:EXO_CONNECTED) {
-        Write-Host "`n[ERREUR] Conflit memoire MSAL (module Exchange actif). Redemarrez la console." -ForegroundColor Red
-        Read-Host "Entree pour retourner au menu"; return
+        Write-Host "`n[ERROR] MSAL memory conflict (Exchange module active). Restart the console." -ForegroundColor Red
+        Read-Host "Press Enter to return to menu"; return
     }
 
-    Write-Host "`n[INIT] Demarrage du moteur Identity (Graph)..." -ForegroundColor Cyan
+    Write-Host "`n[INIT] Starting Identity engine (Graph)..." -ForegroundColor Cyan
     if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
-        Write-Host "`n[INSTALLATION] Module 'Microsoft.Graph.Authentication' introuvable." -ForegroundColor Red
-        if ((Read-Host "Installer le socle Microsoft Graph maintenant ? (O/N)") -match "^[Oo]$") {
-            Write-Host " -> Installation en cours..." -ForegroundColor Cyan
+        Write-Host "`n[INSTALLATION] Module 'Microsoft.Graph.Authentication' not found." -ForegroundColor Red
+        if ((Read-Host "Install Microsoft Graph module now? (Y/N)") -match "^[Yy]$") {
+            Write-Host " -> Installing..." -ForegroundColor Cyan
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop } 
-            catch { Write-Host "[ERREUR] $($_.Exception.Message)" -ForegroundColor Red; return }
+            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+            catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
-    
+
     try { Import-Module Microsoft.Graph.Authentication -ErrorAction Stop } catch {}
     try { Set-MgGraphOption -DisableLoginByWAM $true -ErrorAction SilentlyContinue | Out-Null } catch {}
     try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch {}
 
-    do { $GLOBAL:ADMIN_UPN = Read-Host "UPN Administrateur Global" } until ($GLOBAL:ADMIN_UPN -match "@")
+    do { $GLOBAL:ADMIN_UPN = Read-Host "Global Administrator UPN" } until ($GLOBAL:ADMIN_UPN -match "@")
     $GLOBAL:TARGET_TENANT = ($GLOBAL:ADMIN_UPN -split "@")[1]
 
-    # Scopes de base (ReadOnly) pour toutes les operations d'audit
+    # Base scopes (ReadOnly) for all audit operations
     $ReadOnlyScopes = @(
         "Policy.Read.All",
         "User.Read.All",
@@ -159,7 +159,7 @@ function Connect-O365Core {
         "Application.Read.All"
     )
 
-    # Scopes supplementaires ReadWrite (demande privilegiee)
+    # Additional ReadWrite scopes (privileged request)
     $ReadWriteScopes = @(
         "Policy.ReadWrite.ConditionalAccess",
         "User.ReadWrite.All"
@@ -167,47 +167,47 @@ function Connect-O365Core {
 
     if ($AuditMode -eq 'ReadWrite') {
         $Scopes = $ReadOnlyScopes + $ReadWriteScopes
-        Write-Host "[AUTH] Mode ReadWrite : scopes d_critiques activ_s (Policy.ReadWrite.*, User.ReadWrite.All)" -ForegroundColor Yellow
+        Write-Host "[AUTH] Mode ReadWrite: privileged scopes enabled (Policy.ReadWrite.*, User.ReadWrite.All)" -ForegroundColor Yellow
     } else {
         $Scopes = $ReadOnlyScopes
-        Write-Host "[AUTH] Mode ReadOnly : scopes restreints a la lecture seule" -ForegroundColor Green
+        Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
     }
 
-    Write-Host "`n[AUTH] Ouverture Edge en navigation privee..." -ForegroundColor Yellow
+    Write-Host "`n[AUTH] Opening Edge in private browsing..." -ForegroundColor Yellow
     try { Start-Process msedge.exe -ArgumentList "--inprivate --new-window --user-data-dir=`"$GLOBAL:EDGE_TEMP_DIR`" https://login.microsoft.com/device" -ErrorAction SilentlyContinue } catch {}
 
-    try { Connect-MgGraph -Scopes $Scopes -TenantId $GLOBAL:TARGET_TENANT -UseDeviceAuthentication -ContextScope Process -NoWelcome } 
-    catch { Write-Host "`n[ERREUR] Connexion Graph echouee: $($_.Exception.Message)" -ForegroundColor Red; Read-Host "Entree pour continuer"; return }
+    try { Connect-MgGraph -Scopes $Scopes -TenantId $GLOBAL:TARGET_TENANT -UseDeviceAuthentication -ContextScope Process -NoWelcome }
+    catch { Write-Host "`n[ERROR] Graph connection failed: $($_.Exception.Message)" -ForegroundColor Red; Read-Host "Press Enter to continue"; return }
 
     $Ctx = Get-MgContext
     if ($Ctx.Account -ne $GLOBAL:ADMIN_UPN) {
-        Write-Host "`n[ERREUR] Identite connectee ($($Ctx.Account)) != cible ($GLOBAL:ADMIN_UPN)." -ForegroundColor Red
-        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null; Read-Host "Entree pour continuer"; return
+        Write-Host "`n[ERROR] Connected identity ($($Ctx.Account)) != target ($GLOBAL:ADMIN_UPN)." -ForegroundColor Red
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null; Read-Host "Press Enter to continue"; return
     }
 
-    try { $GLOBAL:TENANT_NAME = (Invoke-MgGraphRequest -Method GET -Uri "v1.0/organization" -ErrorAction Stop).value[0].displayName } 
+    try { $GLOBAL:TENANT_NAME = (Invoke-MgGraphRequest -Method GET -Uri "v1.0/organization" -ErrorAction Stop).value[0].displayName }
     catch { $GLOBAL:TENANT_NAME = $GLOBAL:TARGET_TENANT }
 
     $GLOBAL:GRAPH_CONNECTED = $true
-    Add-SessionLog "ACTION" "Connexion Graph reussie ($GLOBAL:ADMIN_UPN)"
-    Write-Host "[OK] Connecte : $($GLOBAL:TENANT_NAME)" -ForegroundColor Green
+    Add-SessionLog "ACTION" "Graph connection successful ($GLOBAL:ADMIN_UPN)"
+    Write-Host "[OK] Connected: $($GLOBAL:TENANT_NAME)" -ForegroundColor Green
     Start-Sleep -Seconds 1
 }
 
 function Connect-O365Exchange {
     if ($GLOBAL:EXO_CONNECTED) { return }
-    Write-Host "`n[INIT] Demarrage du moteur Messagerie (Exchange)..." -ForegroundColor Cyan
+    Write-Host "`n[INIT] Starting Messaging engine (Exchange)..." -ForegroundColor Cyan
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     if (-not $GLOBAL:ADMIN_UPN) {
-        do { $GLOBAL:ADMIN_UPN = Read-Host "UPN Administrateur Global" } until ($GLOBAL:ADMIN_UPN -match "@")
+        do { $GLOBAL:ADMIN_UPN = Read-Host "Global Administrator UPN" } until ($GLOBAL:ADMIN_UPN -match "@")
         $GLOBAL:TARGET_TENANT = ($GLOBAL:ADMIN_UPN -split "@")[1]
     }
 
     if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-        if ((Read-Host "Module EXO introuvable. Installer ? (O/N)") -match "^[Oo]$") {
-            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop } 
-            catch { Write-Host "[ERREUR] $($_.Exception.Message)" -ForegroundColor Red; return }
+        if ((Read-Host "EXO module not found. Install? (Y/N)") -match "^[Yy]$") {
+            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+            catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
 
@@ -215,17 +215,17 @@ function Connect-O365Exchange {
         Import-Module ExchangeOnlineManagement -ErrorAction Stop
         Connect-ExchangeOnline -UserPrincipalName $GLOBAL:ADMIN_UPN -ShowProgress $false -InformationAction SilentlyContinue
         $GLOBAL:EXO_CONNECTED = $true
-        Write-Host "[OK] Module Messagerie pret." -ForegroundColor Green
+        Write-Host "[OK] Messaging module ready." -ForegroundColor Green
     } catch {
         $GLOBAL:EXO_CONNECTED = $false
-        Write-Host "`n[ERREUR] Connexion Exchange: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Entree pour continuer"
+        Write-Host "`n[ERROR] Exchange connection: $($_.Exception.Message)" -ForegroundColor Red
+        Read-Host "Press Enter to continue"
     }
 }
 
-# ==============================================================================
-# MODULE AUDIT 365 (FONCTIONS D'EXPORT MINEURES RESUMEES POUR EXCEL)
-# ==============================================================================
+# =============================================================================
+# M365 AUDIT MODULE (COMPACTED EXPORT FUNCTIONS FOR EXCEL)
+# =============================================================================
 function Get-GraphData {
     param([string]$Uri)
     $Data = @(); $Query = $Uri
@@ -234,87 +234,87 @@ function Get-GraphData {
             $Resp = Invoke-MgGraphRequest -Uri $Query -Method GET -ErrorAction Stop
             if ($Resp.value) { $Data += $Resp.value }
             $Query = $Resp.'@odata.nextLink'
-        } catch { Add-SessionLog "ERREUR" "Graph Query ($Uri)" "$($_.Exception.Message)"; break }
+        } catch { Add-SessionLog "ERROR" "Graph Query ($Uri)" "$($_.Exception.Message)"; break }
     }
     return $Data
 }
 
 function Export-OneDriveUsage {
-    Write-Host "`n[VOLUMETRIE] Analyse complete OneDrive (Tous utilisateurs)..." -ForegroundColor Cyan
+    Write-Host "`n[STORAGE] Full OneDrive analysis (All users)..." -ForegroundColor Cyan
     try {
         $Users = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999"
         $ODStats = @(); $Count = 0; $MaxRetries = 3
-        
+
         foreach ($U in $Users) {
-            $Count++; Write-Host "   -> Traitement $Count/$($Users.Count) : $($U.displayName)..." -NoNewline -ForegroundColor DarkGray
+            $Count++; Write-Host "   -> Processing $Count/$($Users.Count) : $($U.displayName)..." -NoNewline -ForegroundColor DarkGray
             $RetryCount = 0; $Success = $false
-            
+
             while (-not $Success -and $RetryCount -le $MaxRetries) {
                 try {
                     $Drive = Invoke-MgGraphRequest -Uri "v1.0/users/$($U.id)/drive" -Method GET -ErrorAction Stop
-                    $ODStats += [PSCustomObject]@{ Utilisateur = $U.displayName; UPN = $U.userPrincipalName; Statut = "Actif"; Espace_utilise_Go = if($Drive.quota){Convert-BytesToGB $Drive.quota.used}else{0}; Espace_total_Go = if($Drive.quota){Convert-BytesToGB $Drive.quota.total}else{0} }
+                    $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Active"; Used_GB = if($Drive.quota){Convert-BytesToGB $Drive.quota.used}else{0}; Total_GB = if($Drive.quota){Convert-BytesToGB $Drive.quota.total}else{0} }
                     Write-Host " [OK]" -ForegroundColor Green; $Success = $true
                 } catch {
                     if ($_.Exception.Message -match "429|Too Many Requests") {
                         $RetryCount++; Start-Sleep -Seconds 5
                     } elseif ($_.Exception.Message -match "404|Not Found") {
-                        $ODStats += [PSCustomObject]@{ Utilisateur = $U.displayName; UPN = $U.userPrincipalName; Statut = "Non provisionne (Jamais connecte)"; Espace_utilise_Go = 0; Espace_total_Go = 0 }
+                        $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Not provisioned (Never signed in)"; Used_GB = 0; Total_GB = 0 }
                         Write-Host " [N/A]" -ForegroundColor Yellow; $Success = $true
                     } else {
-                        Write-Host " [ERREUR]" -ForegroundColor Red; $Success = $true
+                        Write-Host " [ERROR]" -ForegroundColor Red; $Success = $true
                     }
                 }
             }
         }
-        $Path = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_Volumetrie_OneDrive_$(Get-Date -Format yyyyMMdd_HHmm).csv"
+        $Path = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv"
         $ODStats | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8BOM
         return $ODStats
-    } catch { Write-Host " [ECHEC] $($_.Exception.Message)" -ForegroundColor Red }
+    } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red }
 }
 
 function Export-FullAuditExcel {
-    Write-Host "`n[AUDIT EXCEL] Generation du classeur global en cours..." -ForegroundColor Cyan
+    Write-Host "`n[EXCEL AUDIT] Generating global workbook..." -ForegroundColor Cyan
     if (-not (Get-Module -ListAvailable -Name ImportExcel)) {
-        Write-Host " Installation du module ImportExcel requise pour cette action." -ForegroundColor Yellow
-        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop } 
-        catch { Write-Host "[ERREUR] $($_.Exception.Message)" -ForegroundColor Red; return }
+        Write-Host " ImportExcel module required for this action." -ForegroundColor Yellow
+        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+        catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         Import-Module ImportExcel
     }
 
     $DateStr = Get-Date -Format "yyyyMMdd_HHmm"
-    $XlsxPath = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_AuditGlobal_$($GLOBAL:TENANT_NAME)_$DateStr.xlsx"
+    $XlsxPath = Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_FullAudit_$($GLOBAL:TENANT_NAME)_$DateStr.xlsx"
 
     try {
-        Write-Host " - Collecte Utilisateurs..." -ForegroundColor DarkGray
+        Write-Host " - Collecting Users..." -ForegroundColor DarkGray
         $Users = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName,mail,usageLocation,assignedLicenses,userType,accountEnabled"
-        $Users | Select-Object displayName, userPrincipalName, accountEnabled, userType | Export-Excel -Path $XlsxPath -WorksheetName "Utilisateurs" -AutoSize -AutoFilter
+        $Users | Select-Object displayName, userPrincipalName, accountEnabled, userType | Export-Excel -Path $XlsxPath -WorksheetName "Users" -AutoSize -AutoFilter
 
-        Write-Host " - Collecte Licences..." -ForegroundColor DarkGray
+        Write-Host " - Collecting Licenses..." -ForegroundColor DarkGray
         $Skus = Get-GraphData "v1.0/subscribedSkus"
-        $Skus | Select-Object skuPartNumber, @{n='Total';e={$_.prepaidUnits.enabled}}, @{n='Consomme';e={$_.consumedUnits}} | Export-Excel -Path $XlsxPath -WorksheetName "Licences" -AutoSize -AutoFilter -Append
+        $Skus | Select-Object skuPartNumber, @{n='Total';e={$_.prepaidUnits.enabled}}, @{n='Consumed';e={$_.consumedUnits}} | Export-Excel -Path $XlsxPath -WorksheetName "Licenses" -AutoSize -AutoFilter -Append
 
-        Write-Host " - Collecte Statuts MFA..." -ForegroundColor DarkGray
+        Write-Host " - Collecting MFA Status..." -ForegroundColor DarkGray
         $MFA = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
-        $MFA | Select-Object userDisplayName, userPrincipalName, isMfaRegistered, @{n='Methodes';e={$_.methodsRegistered -join ', '}} | Export-Excel -Path $XlsxPath -WorksheetName "MFA" -AutoSize -AutoFilter -Append
+        $MFA | Select-Object userDisplayName, userPrincipalName, isMfaRegistered, @{n='Methods';e={$_.methodsRegistered -join ', '}} | Export-Excel -Path $XlsxPath -WorksheetName "MFA" -AutoSize -AutoFilter -Append
 
-        Write-Host " - Collecte Appareils..." -ForegroundColor DarkGray
+        Write-Host " - Collecting Devices..." -ForegroundColor DarkGray
         $Devices = Get-GraphData "v1.0/devices"
-        if ($Devices) { $Devices | Select-Object displayName, operatingSystem, isCompliant, trustType, approximateLastSignInDateTime | Export-Excel -Path $XlsxPath -WorksheetName "Appareils" -AutoSize -AutoFilter -Append }
+        if ($Devices) { $Devices | Select-Object displayName, operatingSystem, isCompliant, trustType, approximateLastSignInDateTime | Export-Excel -Path $XlsxPath -WorksheetName "Devices" -AutoSize -AutoFilter -Append }
 
-        Write-Host " - Collecte Domaines..." -ForegroundColor DarkGray
+        Write-Host " - Collecting Domains..." -ForegroundColor DarkGray
         $Domains = Get-GraphData "v1.0/domains"
-        $Domains | Select-Object id, isVerified, isDefault | Export-Excel -Path $XlsxPath -WorksheetName "Domaines" -AutoSize -AutoFilter -Append
+        $Domains | Select-Object id, isVerified, isDefault | Export-Excel -Path $XlsxPath -WorksheetName "Domains" -AutoSize -AutoFilter -Append
 
-        Write-Host " - Collecte OneDrive..." -ForegroundColor DarkGray
+        Write-Host " - Collecting OneDrive..." -ForegroundColor DarkGray
         $OD = Export-OneDriveUsage
         if ($OD) { $OD | Export-Excel -Path $XlsxPath -WorksheetName "OneDrive" -AutoSize -AutoFilter -Append }
 
-        Write-Host "`n[SUCCES] Audit Excel termine : $XlsxPath" -ForegroundColor Green
-        Add-SessionLog "ACTION" "Export Excel reussi" $XlsxPath
+        Write-Host "`n[SUCCESS] Excel audit complete: $XlsxPath" -ForegroundColor Green
+        Add-SessionLog "ACTION" "Excel export successful" $XlsxPath
         Invoke-SafeOpen -FilePath $XlsxPath
     } catch {
-        Write-Host "`n[ERREUR] Generation Excel : $($_.Exception.Message)" -ForegroundColor Red
-        Add-SessionLog "ERREUR" "Export Excel" $_.Exception.Message
+        Write-Host "`n[ERROR] Excel generation: $($_.Exception.Message)" -ForegroundColor Red
+        Add-SessionLog "ERROR" "Excel Export" $_.Exception.Message
     }
 }
 
@@ -324,9 +324,9 @@ function Show-MenuAudit {
 
     $QuitAudit = $false
     do {
-        Write-Host "`n--- [ AUDIT 365 ] ---" -ForegroundColor Cyan
-        Write-Host " [E]  Export EXCEL multi-onglets (Recommande : Utilisateurs, MFA, Appareils, Licences, OneDrive)"
-        Write-Host " [0]  Retour"
+        Write-Host "`n--- [ M365 AUDIT ] ---" -ForegroundColor Cyan
+        Write-Host " [E]  Export multi-tab EXCEL (Recommended: Users, MFA, Devices, Licenses, OneDrive)"
+        Write-Host " [0]  Back"
 
         $Choice = Read-Host "Selection"
         switch ($Choice) {
@@ -337,27 +337,27 @@ function Show-MenuAudit {
     } while (-not $QuitAudit)
 }
 
-# ==============================================================================
-# POINT D'ENTREE PRINCIPAL
-# ==============================================================================
+# =============================================================================
+# MAIN ENTRY POINT
+# =============================================================================
 $GlobalQuit = $false
 
 do {
     Clear-Host
     Write-Host "==============================================================" -ForegroundColor Cyan
-    Write-Host "                  SHERL0CK V4.1 - META CONSOLE                 " -ForegroundColor White
+    Write-Host "                  SHERL0CK V4.1 - META CONSOLE                " -ForegroundColor White
     Write-Host "==============================================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host " Tenant cible : $(if($GLOBAL:TENANT_NAME){$GLOBAL:TENANT_NAME}else{'En attente de connexion...'})" -ForegroundColor Yellow
-    Write-Host " Rapports     : $GLOBAL:AUDIT_DIR" -ForegroundColor DarkGray
+    Write-Host " Target tenant : $(if($GLOBAL:TENANT_NAME){$GLOBAL:TENANT_NAME}else{'Awaiting connection...'})" -ForegroundColor Yellow
+    Write-Host " Reports dir   : $GLOBAL:AUDIT_DIR" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host " [ 1 ] IDENTITY ET SECURITY   (MFA, Acces Conditionnel, Apps OAuth)" -ForegroundColor White
-    Write-Host " [ 2 ] EXCHANGE ONLINE        (Boites, Quotas, Redirections)" -ForegroundColor White
-    Write-Host " [ 3 ] AUDIT 365              (Collecte complete + Export Excel)" -ForegroundColor Cyan
+    Write-Host " [ 1 ] IDENTITY & SECURITY   (MFA, Conditional Access, OAuth Apps)" -ForegroundColor White
+    Write-Host " [ 2 ] EXCHANGE ONLINE        (Mailboxes, Quotas, Redirects)" -ForegroundColor White
+    Write-Host " [ 3 ] M365 AUDIT             (Complete collection + Excel Export)" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host " [ 4 ] JOURNAUX DE SESSION    (Logs et erreurs)" -ForegroundColor White
+    Write-Host " [ 4 ] SESSION LOGS          (Logs & errors)" -ForegroundColor White
     Write-Host ""
-    Write-Host " [ 0 ] DECONNEXION ET QUITTER" -ForegroundColor Red
+    Write-Host " [ 0 ] DISCONNECT & QUIT" -ForegroundColor Red
 
     $MenuChoice = Read-Host "`n [>] Module"
     switch ($MenuChoice) {
@@ -372,6 +372,6 @@ do {
 try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch {}
 if ($GLOBAL:EXO_CONNECTED) { try { Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue } catch {} }
 try { if (Test-Path $GLOBAL:EDGE_TEMP_DIR) { Remove-Item -Path $GLOBAL:EDGE_TEMP_DIR -Recurse -Force -ErrorAction SilentlyContinue } } catch {}
-Write-Host "`n[FIN] Fermeture securisee." -ForegroundColor Green
+Write-Host "`n[EXIT] Secure shutdown complete." -ForegroundColor Green
 Start-Sleep -Seconds 1
 Clear-Host

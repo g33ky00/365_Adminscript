@@ -1,32 +1,32 @@
 # 365_Adminscript
 
-🛠 Un outil PowerShell avancé pour l'administration et l'audit unifié de Microsoft 365 (Entra ID, Exchange Online, Intune).
+🛠 An advanced PowerShell tool for unified Microsoft 365 administration (Entra ID, Exchange Online, Intune).
 
-## Fonctionnalités clés
+## Key Features
 
-- 🔐 Authentification Graph & Exchange en mode device code
-- 🧾 Export complet des audits vers Excel (Utilisateurs, MFA, Appareils, Licences, Domaines, OneDrive)
-- 📊 Gestion intelligente du throttling Graph API
-- 🧼 Journalisation sécurisée masquant les UPNs sensibles
-- 📁 Gestion des conflits d'authentification MSAL (Graph <> Exchange)
-- 🛡 Modules PowerShell épinglés & vérifiés via PSGallery officielle
-- 🧱 Architecture modulaire et testable avec Pester
+- 🔐 Graph & Exchange authentication via device code flow
+- 🧾 Full audit export to Excel (Users, MFA, Devices, Licenses, Domains, OneDrive)
+- 📊 Intelligent Graph API throttling management
+- 🧼 Secure logging that masks sensitive UPNs
+- 📁 MSAL authentication conflict handling (Graph <> Exchange)
+- 🛡 PowerShell modules pinned and verified via official PSGallery
+- 🧱 Modular and testable architecture with Pester
 
-## Modes d'audit OAuth (H3)
+## OAuth Audit Modes (H3)
 
-- **ReadOnly** (défaut) : scopes restreints à la lecture seule — minimise le surface d'attaque
-- **ReadWrite** : ajoute `Policy.ReadWrite.ConditionalAccess` et `User.ReadWrite.All` pour les opérations d'écriture critiques
+- **ReadOnly** (default) — scopes restricted to read-only operations, minimizing the attack surface
+- **ReadWrite** — adds `Policy.ReadWrite.ConditionalAccess` and `User.ReadWrite.All` for privileged write operations
 
 ```powershell
-.\Scripts\Sherl0ck_v4.1.ps1                          # Mode ReadOnly par défaut
-.\Scripts\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # Mode ReadWrite
+.\Scripts\Sherl0ck_v4.1.ps1                          # ReadOnly mode (default)
+.\Scripts\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # ReadWrite mode
 ```
 
-## Prérequis
+## Prerequisites
 
-- PowerShell 5.1 ou supérieur
-- Compte administrateur Microsoft 365
-- Accès aux scopes suivants :
+- PowerShell 5.1 or higher
+- Microsoft 365 administrator account
+- Access to the following scopes:
   - Policy.Read.All
   - User.Read.All
   - Organization.Read.All
@@ -35,32 +35,32 @@
 
 ## Installation
 
-Clonez le dépôt :
+Clone the repository:
 ```bash
 git clone https://github.com/g33ky00/365_Adminscript.git
 cd 365_Adminscript
 ```
 
-Exécutez le script principal :
+Run the main script:
 ```powershell
 .\Scripts\Sherl0ck_v4.1.ps1
 ```
 
-Les modules requis seront téléchargés automatiquement depuis la galerie PowerShell officielle.
+Required modules will be downloaded automatically from the official PowerShell Gallery.
 
-## Structure du projet
+## Project Structure
 
 ```
 365_Adminscript/
 ├── Scripts/
-│   └── Sherl0ck_v4.1.ps1          # Point d'entrée principal
+│   └── Sherl0ck_v4.1.ps1          # Main entry point
 ├── Modules/
-│   ├── Sherl0ck.Utils.psm1        # Utilitaires et helpers
-│   ├── Sherl0ck.UI.psm1           # Interface utilisateur et logs
-│   ├── Sherl0ck.Auth.psm1         # Authentification Graph/EXO
-│   └── Sherl0ck.Audit.psm1        # Collecte et export audit
+│   ├── Sherl0ck.Utils.psm1        # Utilities and helpers
+│   ├── Sherl0ck.UI.psm1           # User interface and logging
+│   ├── Sherl0ck.Auth.psm1         # Graph/Exchange authentication
+│   └── Sherl0ck.Audit.psm1        # Audit collection and export
 ├── Config/
-│   └── config.json.example        # Modèle de configuration externe
+│   └── config.json.example        # External configuration template
 ├── Tests/
 │   ├── Sherl0ck.Tests.Utils.ps1
 │   ├── Sherl0ck.Tests.UI.ps1
@@ -72,31 +72,31 @@ Les modules requis seront téléchargés automatiquement depuis la galerie Power
 
 ## Tests
 
-Utilise Pester pour valider chaque module indépendamment :
+Use Pester to validate each module independently:
 ```powershell
 Invoke-Pester -Path ./Tests/
 ```
 
-## Corrections appliquées (Sherl0ck v4.1)
+## Applied Corrections (Sherl0ck v4.1)
 
-- **H1** : MSAL conflict handling (Graph <> Exchange) — protection contre les collisions de contexte d'authentification ✅
-- **H2** : Secure logging — masquage automatique des UPNs sensibles via `Mask-SensitiveData` ✅
-- **H3** : Scope OAuth separation — modes ReadOnly/ReadWrite avec paramètre dynamique ✅
-- **H4** : Module pinning via PSGallery officielle — vérification des modules requis ⚠️ Partiel
-- **M1** : Masquage UPNs (`***`) + chiffrement logs via `ConvertFrom-SecureString` ✅
-- **M2** : Vérifier existence avant écriture + incrémenter nom si nécessaire ❌ À faire
-- **M3** : Vérifier somme de contrôle / source fiable + Ajouter -SkipModuleInstall ❌ À faire
-- **L1** : Refactorisation modulaire en modules PowerShell ❌ À faire
-- **L2** : Tests unitaires étendus (Pester) ❌ À faire
-- **L3** : Mode simulation -WhatIf ❌ À faire
-- **I1** : Externalisation de configuration (Sherl0ck_Config.json) ✅
-- **I2** : Support multilingue (fr-FR / en-US) ❌ À faire
-- **I3** : Documentation intégrée (commentaires help XML) ✅
+- **H1** : MSAL conflict handling (Graph <> Exchange) — protects against authentication context collisions ✅
+- **H2** : Secure logging — masks sensitive UPNs via `Mask-SensitiveData` ✅
+- **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
+- **H4** : Module pinning via official PSGallery — module verification ⚠️ Partial
+- **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
+- **M2** : Check existence before write + increment filename if needed ❌ To do
+- **M3** : Checksum/source verification + add `-SkipModuleInstall` ❌ To do
+- **L1** : Modular refactoring into PowerShell modules ❌ To do
+- **L2** : Extended unit tests (Pester) ❌ To do
+- **L3** : Simulation mode `-WhatIf` ❌ To do
+- **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
+- **I2** : Multilingual support (fr-FR / en-US) ❌ To do
+- **I3** : Integrated documentation (help XML comments) ✅
 
-## Licence
+## License
 
-MIT - Voir LICENSE pour plus d'informations.
+MIT — See LICENSE for details.
 
-## Crédits
+## Credits
 
-Développé par g33ky00 — basé sur l'outil Sherl0ck v4.1.
+Developed by g33ky00 — based on the Sherl0ck v4.1 tool.
