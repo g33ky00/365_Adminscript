@@ -4,7 +4,8 @@
 
 .DESCRIPTION
     Contains session logging with M1 security: UPN masking via
-    Mask-SensitiveData and log encryption via ConvertFrom-SecureString.
+    Mask-SensitiveData and log encryption via ConvertFrom-SecureString
+    using a portable AES key (key file) for cross-machine compatibility.
 
 .PARAMETER InputText
     The text to mask (UPNs/emails replaced with ***).
@@ -28,9 +29,9 @@
 
 .NOTES
     Part of the 365_Adminscript modular architecture.
+    Log encryption uses a key file stored alongside the logs directory,
+    enabling decryption on any machine with access to the key file.
 #>
-
-# M1: Mask sensitive data (UPNs, emails) before logging
 function Mask-SensitiveData {
     param([string]$InputText)
     if (-not $InputText) { return $InputText }
@@ -48,9 +49,23 @@ function Add-SessionLog {
     if ($SafeDetails) { $LogEntry += " | DETAILS: $SafeDetails" }
     $GLOBAL:SESSION_LOGS += $LogEntry
     try {
-        # M1: Encrypt log file via SecureString
+        # M1: Encrypt log via portable AES key (key file) — not DPAPI-only
+        # Point 1 fix: DPAPI-only encryption binds to machine + user; using a key file
+        # enables decryption on any machine with access to the key file.
+        $KeyFilePath = Join-Path $GLOBAL:LOG_DIR "log_key.key"
+        if (-not (Test-Path $KeyFilePath)) {
+            # Generate a random 256-bit key on first run
+            $Key = New-Object byte[] 32
+            [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($Key)
+            $Key | Out-File -FilePath $KeyFilePath -Encoding ASCII
+            # Restrict permissions to current user only
+            $acl = Get-Acl -Path $KeyFilePath
+            $acl.SetAccessRuleProtection($true, $false)
+            $acl | Set-Acl -Path $KeyFilePath
+        }
+        $Key = Get-Content -Path $KeyFilePath -Encoding ASCII | ForEach-Object { [byte]$_ }
         $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
-        $Encrypted = $SecureLog | ConvertFrom-SecureString
+        $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
         Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
     }
     catch {

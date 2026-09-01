@@ -7,7 +7,7 @@
 - 🔐 Graph & Exchange authentication via device code flow
 - 🧾 Full audit export to Excel (Users, MFA, Devices, Licenses, Domains, OneDrive)
 - 📊 Intelligent Graph API throttling management
-- 🧼 Secure logging that masks sensitive UPNs
+- 🧼 Secure logging that masks sensitive UPNs + portable AES key encryption (key file stored in logs directory)
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
 - 🛡 PowerShell modules pinned and verified via official PSGallery
 - 🧱 Modular and testable architecture with Pester
@@ -83,7 +83,7 @@ Invoke-Pester -Path ./Tests/
 - **H2** : Secure logging — masks sensitive UPNs via `Mask-SensitiveData` ✅
 - **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
 - **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
-- **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
+- **M1** : UPN masking (`***`) + **portable AES key encryption** (key file, not DPAPI-only) via `ConvertFrom-SecureString -Key` ✅
 - **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅
 - **M3** : `Find-Module` source + version verification + **real SHA-512 hash comparison** via `Save-Module` + `Get-FileHash` vs `PackageHash` + `-SkipModuleInstall` switch ✅
 - **L1** : Modular refactoring into PowerShell modules (Utils, UI, Auth, Audit) ✅
