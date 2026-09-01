@@ -86,8 +86,8 @@ Invoke-Pester -Path ./Tests/
 - **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
 - **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅
 - **M3** : Checksum/source verification via `Find-Module` (PSGallery integrity hashes) + `-SkipModuleInstall` switch ✅
-- **L1** : Modular refactoring into PowerShell modules ❌ To do
-- **L2** : Extended unit tests (Pester) ❌ To do
+- **L1** : Modular refactoring into PowerShell modules (Utils, UI, Auth, Audit) ✅
+- **L2** : Extended unit tests (Pester) — test stubs for all 4 modules ✅
 - **L3** : Simulation mode `-WhatIf` ❌ To do
 - **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
 - **I2** : Multilingual support (fr-FR / en-US) ❌ To do
