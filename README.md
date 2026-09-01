@@ -82,6 +82,7 @@ Invoke-Pester -Path ./Tests/
 - **H1** : MSAL conflict handling (Graph <> Exchange) — protects against authentication context collisions ✅
 - **H2** : Secure logging — masks sensitive UPNs via `Mask-SensitiveData` ✅
 - **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
+  - **Point 6** : ReadWrite privileged scopes (Policy.ReadWrite.*, User.ReadWrite.All) **removed** — unused by any function. ReadWrite mode still accepted as parameter but warns that no write operations are available.
 - **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
 - **M1** : UPN masking (`***`) + **portable AES key encryption** (key file in separate `%LOCALAPPDATA%\Sherl0ck_Secrets\` directory with explicit NTFS ACL — key never co-located with logs) via `ConvertFrom-SecureString -Key` ✅
 - **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅

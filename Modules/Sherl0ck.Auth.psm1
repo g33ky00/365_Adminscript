@@ -9,6 +9,8 @@
     H3: OAuth scopes are separated into ReadOnly (default) and ReadWrite modes.
     H4: Module installation uses MinimumVersion pinning + PSGallery source verification.
     M3: -SkipModuleInstall switch bypasses auto-install.
+    Point 6: ReadWrite privileged scopes (Policy.ReadWrite.*, User.ReadWrite.All) are NOT
+    requested — no write functions consume them. ReadWrite mode warns the user.
 
 .PARAMETER AuditMode
     Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
@@ -185,19 +187,18 @@ function Connect-O365Core {
         "Application.Read.All"
     )
 
-    # Additional ReadWrite scopes (privileged request)
-    $ReadWriteScopes = @(
-        "Policy.ReadWrite.ConditionalAccess",
-        "User.ReadWrite.All"
-    )
-
+    # Point 6 fix: ReadWrite scopes removed — no function in the codebase consumes
+    # Policy.ReadWrite.ConditionalAccess or User.ReadWrite.All.
+    # Surplus permission declared without usage = audit finding.
+    # ReadWrite mode still accepted as parameter for future use but warns:
     if ($AuditMode -eq 'ReadWrite') {
-        $Scopes = $ReadOnlyScopes + $ReadWriteScopes
-        Write-Host "[AUTH] Mode ReadWrite: privileged scopes enabled (Policy.ReadWrite.*, User.ReadWrite.All)" -ForegroundColor Yellow
-    } else {
-        $Scopes = $ReadOnlyScopes
-        Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
+        Write-Host "[WARNING] ReadWrite mode requested, but no write functions are currently implemented." -ForegroundColor Yellow
+        Write-Host "[NOTE]   ReadWrite privileged scopes (Policy.ReadWrite.*, User.ReadWrite.All) are intentionally NOT requested." -ForegroundColor DarkGray
+        Write-Host "[NOTE]   Contact the development team if write operations are required." -ForegroundColor DarkGray
     }
+
+    $Scopes = $ReadOnlyScopes
+    Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
 
     Write-Host "`n[AUTH] Opening browser in private browsing..." -ForegroundColor Yellow
     # Point 3: Fallback cascade: Edge → Firefox → Chrome → explicit error
