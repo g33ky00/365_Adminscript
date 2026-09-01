@@ -32,7 +32,7 @@ param(
     [switch]$SkipModuleInstall
 )
 
-Set-StrictMode -Off
+Set-StrictMode -Version 3.0  # Point 2: Enabled strict mode (was -Off)
 
 # =============================================================================
 # GLOBAL VARIABLES

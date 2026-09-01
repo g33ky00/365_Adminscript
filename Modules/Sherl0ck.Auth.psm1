@@ -61,20 +61,41 @@ function Verify-TrustedModule {
         Write-Host "[WARNING] Module '$ModuleName' >= $RequiredVersion not found on PSGallery." -ForegroundColor Yellow
         return $false
     }
-    # M3: Verify the package integrity hash (SHA-512) from PSGallery metadata
-    #     This ensures the module content has not been tampered with, even if the
-    #     repository source is trusted. The hash is retrieved from the PSGallery API
-    #     and validated against the package's own hash after download.
+    # M3: Verify package integrity via real hash comparison
+    #     Downloads the package to a temp dir, computes SHA-512 of the .nupkg,
+    #     and compares against the PackageHash from PSGallery metadata.
+    #     This provides real tamper detection — not just field presence checking.
     try {
         $packageHash = $available.PackageHash
-        if ($packageHash -and $packageHash.Length -ge 64) {
-            Write-Host "[VERIFY] Module '$ModuleName' SHA-512 hash confirmed from PSGallery." -ForegroundColor DarkGray
-        } else {
-            Write-Host "[WARNING] Module '$ModuleName' package hash not available. Proceeding with source verification only." -ForegroundColor Yellow
+        if (-not $packageHash -or $packageHash.Length -lt 64) {
+            Write-Host "[WARNING] Module '$ModuleName' package hash not available on PSGallery." -ForegroundColor Yellow
+            return $true  # Proceed with source verification only
         }
+
+        $tempDir = Join-Path $env:TEMP "Sherl0ck_ModuleVerify_$(Get-Random)"
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+        # Download the package without installing it
+        Save-Module -Name $ModuleName -RequiredVersion $available.Version -Repository PSGallery -Path $tempDir -Force -ErrorAction Stop
+
+        # Compute SHA-512 of the downloaded .nupkg file
+        $nupkgPath = Get-ChildItem -Path $tempDir -Recurse -Filter "*.nupkg" | Select-Object -First 1
+        if ($nupkgPath) {
+            $computedHash = (Get-FileHash -Path $nupkgPath.FullName -Algorithm SHA512).Hash
+            if ($computedHash -ne $packageHash) {
+                Write-Host "[WARNING] Hash mismatch for '$ModuleName' v$($available.Version). Possible tampering!" -ForegroundColor Red
+                Add-SessionLog "WARNING" "Module hash mismatch" "Expected: $packageHash Computed: $computedHash"
+                Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+                return $false
+            }
+            Write-Host "[VERIFY] Module '$ModuleName' v$($available.Version) SHA-512 hash verified." -ForegroundColor DarkGray
+        }
+
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
     catch {
         Write-Host "[WARNING] Could not verify package hash for '$ModuleName'. Proceeding with source verification only." -ForegroundColor Yellow
+        Add-SessionLog "WARNING" "Hash verification failed" $_.Exception.Message
     }
     return $true
 }
