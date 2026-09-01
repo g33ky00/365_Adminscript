@@ -49,19 +49,31 @@ function Add-SessionLog {
     if ($SafeDetails) { $LogEntry += " | DETAILS: $SafeDetails" }
     $GLOBAL:SESSION_LOGS += $LogEntry
     try {
-        # M1: Encrypt log via portable AES key (key file) — not DPAPI-only
-        # Point 1 fix: DPAPI-only encryption binds to machine + user; using a key file
-        # enables decryption on any machine with access to the key file.
-        $KeyFilePath = Join-Path $GLOBAL:LOG_DIR "log_key.key"
+        # M1: Encrypt log via portable AES key stored in a SEPARATE secrets directory
+        # Point 1 fix (revised): Key file stored in $GLOBAL:LOG_KEY_DIR, NOT in $GLOBAL:LOG_DIR.
+        # This prevents an attacker with log directory access from also obtaining the key.
+        # Plus explicit ACL with FileSystemAccessRule for the current user (not just inheritance removal).
+        $KeyFilePath = Join-Path $GLOBAL:LOG_KEY_DIR "log_key.key"
         if (-not (Test-Path $KeyFilePath)) {
-            # Generate a random 256-bit key on first run
+            # Generate a random 256-bit AES key on first run
             $Key = New-Object byte[] 32
             [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($Key)
             $Key | Out-File -FilePath $KeyFilePath -Encoding ASCII
-            # Restrict permissions to current user only
+
+            # Point 1 fix (revised): Explicit ACL — current user only, full control, no inheritance
             $acl = Get-Acl -Path $KeyFilePath
-            $acl.SetAccessRuleProtection($true, $false)
-            $acl | Set-Acl -Path $KeyFilePath
+            $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance, remove inherited rules
+            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+            $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $currentUser,
+                "FullControl",
+                "None",
+                "None",
+                "Allow"
+            )
+            $acl.SetOwner($currentUser)
+            $acl.AddAccessRule($accessRule)
+            Set-Acl -Path $KeyFilePath -AclObject $acl
         }
         $Key = Get-Content -Path $KeyFilePath -Encoding ASCII | ForEach-Object { [byte]$_ }
         $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force

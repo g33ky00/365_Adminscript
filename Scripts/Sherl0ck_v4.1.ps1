@@ -49,6 +49,9 @@ $GLOBAL:BREAKGLASS_UPN      = ""
 $ConfigPath                 = Join-Path $PSScriptRoot "Sherl0ck_Config.json"
 $GLOBAL:LOG_DIR             = Join-Path $env:LOCALAPPDATA "Sherl0ck_Logs"
 if (-not (Test-Path $GLOBAL:LOG_DIR)) { New-Item -ItemType Directory -Force -Path $GLOBAL:LOG_DIR | Out-Null }
+# Point 1 fix: Log key stored in a SEPARATE directory from logs — key never co-located with encrypted files
+$GLOBAL:LOG_KEY_DIR         = Join-Path $env:LOCALAPPDATA "Sherl0ck_Secrets"
+if (-not (Test-Path $GLOBAL:LOG_KEY_DIR)) { New-Item -ItemType Directory -Force -Path $GLOBAL:LOG_KEY_DIR | Out-Null }
 $GLOBAL:LOG_FILE            = Join-Path $GLOBAL:LOG_DIR "Session_$(Get-Date -Format 'yyyyMMdd').log"
 $GLOBAL:EDGE_TEMP_DIR       = Join-Path $env:TEMP "Sherl0ck_Edge_TempProfile"
 $GLOBAL:AUDIT_DIR           = Join-Path $env:USERPROFILE "Documents\Sherl0ck_Audits"
