@@ -9,8 +9,7 @@
     H3: OAuth scopes are separated into ReadOnly (default) and ReadWrite modes.
     H4: Module installation uses MinimumVersion pinning + PSGallery source verification.
     M3: -SkipModuleInstall switch bypasses auto-install.
-    Point 6: ReadWrite privileged scopes (Policy.ReadWrite.*, User.ReadWrite.All) are NOT
-    requested — no write functions consume them. ReadWrite mode warns the user.
+    Point 6: ReadWrite privileged scopes removed — no function consumes them. ReadWrite mode warns the user.
 
 .PARAMETER AuditMode
     Specifies the audit mode: 'ReadOnly' (default) or 'ReadWrite'.
@@ -30,7 +29,7 @@
 
 .EXAMPLE
     PS> Connect-O365Core -AuditMode 'ReadWrite' -SkipModuleInstall
-    Connects with read-write scopes, skipping module installation.
+    Connects to Microsoft Graph (read-only scopes only — ReadWrite mode warns that write functions are not yet implemented).
 
 .NOTES
     Part of the 365_Adminscript modular architecture.
@@ -187,13 +186,12 @@ function Connect-O365Core {
         "Application.Read.All"
     )
 
-    # Point 6 fix: ReadWrite scopes removed — no function in the codebase consumes
-    # Policy.ReadWrite.ConditionalAccess or User.ReadWrite.All.
+    # Point 6 fix: Privileged scopes removed — no function in the codebase consumes them.
     # Surplus permission declared without usage = audit finding.
     # ReadWrite mode still accepted as parameter for future use but warns:
     if ($AuditMode -eq 'ReadWrite') {
         Write-Host "[WARNING] ReadWrite mode requested, but no write functions are currently implemented." -ForegroundColor Yellow
-        Write-Host "[NOTE]   ReadWrite privileged scopes (Policy.ReadWrite.*, User.ReadWrite.All) are intentionally NOT requested." -ForegroundColor DarkGray
+        Write-Host "[NOTE]   Privileged write scopes are intentionally NOT requested." -ForegroundColor DarkGray
         Write-Host "[NOTE]   Contact the development team if write operations are required." -ForegroundColor DarkGray
     }
 
