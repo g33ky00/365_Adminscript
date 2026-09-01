@@ -29,6 +29,36 @@ param(
 Set-StrictMode -Off
 
 # =============================================================================
+# H4: Module version pinning constants
+# =============================================================================
+$Script:REQUIRED_MODULES = @{
+    'Microsoft.Graph.Authentication' = '1.9.3'
+    'ExchangeOnlineManagement'       = '3.2.0'
+    'ImportExcel'                    = '7.8.0'
+}
+
+function Verify-TrustedModule {
+    param(
+        [string]$ModuleName,
+        [string]$RequiredVersion
+    )
+    # H4: Verify the module source is the official PSGallery
+    $repo = Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue
+    if (-not $repo -or $repo.SourceLocation -ne 'https://www.powershellgallery.com/api/v2/') {
+        Write-Host "[WARNING] PSGallery source not verified. Skipping module installation." -ForegroundColor Yellow
+        return $false
+    }
+    # H4: Check that the required minimum version is available
+    $available = Find-Module -Name $ModuleName -Repository PSGallery -ErrorAction SilentlyContinue |
+        Where-Object { [version]$_.Version -ge [version]$RequiredVersion }
+    if (-not $available) {
+        Write-Host "[WARNING] Module '$ModuleName' >= $RequiredVersion not found on PSGallery." -ForegroundColor Yellow
+        return $false
+    }
+    return $true
+}
+
+# =============================================================================
 # GLOBAL VARIABLES
 # =============================================================================
 $GLOBAL:POLICY_STATE        = "enabledForReportingButNotEnforced"
@@ -129,9 +159,14 @@ function Connect-O365Core {
     if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
         Write-Host "`n[INSTALLATION] Module 'Microsoft.Graph.Authentication' not found." -ForegroundColor Red
         if ((Read-Host "Install Microsoft Graph module now? (Y/N)") -match "^[Yy]$") {
+            Write-Host " -> Verifying trusted source..." -ForegroundColor Cyan
+            # H4: Verify PSGallery source and minimum version before install
+            if (-not (Verify-TrustedModule -ModuleName 'Microsoft.Graph.Authentication' -RequiredVersion $Script:REQUIRED_MODULES['Microsoft.Graph.Authentication'])) {
+                return
+            }
             Write-Host " -> Installing..." -ForegroundColor Cyan
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+            try { Install-Module -Name Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['Microsoft.Graph.Authentication'] -ErrorAction Stop }
             catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
@@ -206,7 +241,11 @@ function Connect-O365Exchange {
 
     if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
         if ((Read-Host "EXO module not found. Install? (Y/N)") -match "^[Yy]$") {
-            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+            # H4: Verify PSGallery source and minimum version before install
+            if (-not (Verify-TrustedModule -ModuleName 'ExchangeOnlineManagement' -RequiredVersion $Script:REQUIRED_MODULES['ExchangeOnlineManagement'])) {
+                return
+            }
+            try { Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['ExchangeOnlineManagement'] -ErrorAction Stop }
             catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         } else { return }
     }
@@ -276,7 +315,11 @@ function Export-FullAuditExcel {
     Write-Host "`n[EXCEL AUDIT] Generating global workbook..." -ForegroundColor Cyan
     if (-not (Get-Module -ListAvailable -Name ImportExcel)) {
         Write-Host " ImportExcel module required for this action." -ForegroundColor Yellow
-        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop }
+        # H4: Verify PSGallery source and minimum version before install
+        if (-not (Verify-TrustedModule -ModuleName 'ImportExcel' -RequiredVersion $Script:REQUIRED_MODULES['ImportExcel'])) {
+            return
+        }
+        try { Install-Module ImportExcel -Scope CurrentUser -Force -AllowClobber -MinimumVersion $Script:REQUIRED_MODULES['ImportExcel'] -ErrorAction Stop }
         catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; return }
         Import-Module ImportExcel
     }
