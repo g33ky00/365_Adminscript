@@ -82,7 +82,7 @@ Invoke-Pester -Path ./Tests/
 - **H1** : MSAL conflict handling (Graph <> Exchange) — protects against authentication context collisions ✅
 - **H2** : Secure logging — masks sensitive UPNs via `Mask-SensitiveData` ✅
 - **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
-- **H4** : Module pinning via official PSGallery — module verification ⚠️ Partial
+- **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
 - **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
 - **M2** : Check existence before write + increment filename if needed ❌ To do
 - **M3** : Checksum/source verification + add `-SkipModuleInstall` ❌ To do
