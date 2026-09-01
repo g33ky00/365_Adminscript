@@ -80,7 +80,7 @@ Invoke-Pester -Path ./Tests/
 ## Corrections appliquées (Sherl0ck v4.1)
 
 - **H1** : MSAL conflict handling (Graph <> Exchange) — protection contre les collisions de contexte d'authentification ✅
-- **H2** : Secure logging — masquage automatique des UPNs sensibles dans les journaux ❌ À faire
+- **H2** : Secure logging — masquage automatique des UPNs sensibles via `Mask-SensitiveData` ✅
 - **H3** : Scope OAuth separation — modes ReadOnly/ReadWrite avec paramètre dynamique ✅
 - **H4** : Module pinning via PSGallery officielle — vérification des modules requis ⚠️ Partiel
 - **M1** : Masquage UPNs (`***`) + chiffrement logs via `ConvertFrom-SecureString` ✅
@@ -91,7 +91,7 @@ Invoke-Pester -Path ./Tests/
 - **L3** : Mode simulation -WhatIf ❌ À faire
 - **I1** : Externalisation de configuration (Sherl0ck_Config.json) ✅
 - **I2** : Support multilingue (fr-FR / en-US) ❌ À faire
-- **I3** : Documentation intégrée (commentaires help XML) ⚠️ Partiel
+- **I3** : Documentation intégrée (commentaires help XML) ✅
 
 ## Licence
 
