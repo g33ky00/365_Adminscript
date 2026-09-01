@@ -94,6 +94,7 @@ Invoke-Pester -Path ./Tests/
 - **FIX-3** : Browser fallback (Edge→Firefox→Chrome) + explicit error if none available ✅
 - **FIX-6** : ReadWrite privileged scopes removed — no function consumes them ✅
 - **Point 8** : Identity & Security audit stubs (MFA, CA, OAuth, RBAC) + extended menu [1] ✅
+- **Point 4** : Graph $batch (POST /v1.0/$batch, 20 req/batch) for Export-OneDriveUsage — reduces API calls by ~20x ✅
 - **I1** : Configuration externalization (`Sherl0ck_Config.json`) ✅
 - **I2** : Multilingual support (fr-FR / en-US) ❌ To do
 - **I3** : Integrated documentation (help XML comments) ✅

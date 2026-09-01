@@ -48,3 +48,20 @@ Describe 'Export-IdentitySecurityExcel' {
         { Export-IdentitySecurityExcel -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }
+
+Describe 'Export-OneDriveUsage (Point 4: $batch)' {
+    It 'Should handle missing Graph connection gracefully' {
+        $GLOBAL:GRAPH_CONNECTED = $false
+        $GLOBAL:AUDIT_DIR = "TestDrive:\Audits"
+        $GLOBAL:TENANT_NAME = "TestTenant"
+        { Export-OneDriveUsage -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+    }
+
+    It 'Should use $batch endpoint (POST /v1.0/$batch)' {
+        # This is a structural check — verify the function contains the batch endpoint
+        $auditModuleContent = Get-Content (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Audit.psm1") -Raw
+        $auditModuleContent | Should -Contain '$batch'
+        $auditModuleContent | Should -Contain 'v1.0/$batch'
+        $auditModuleContent | Should -Contain 'BatchSize = 20'
+    }
+}

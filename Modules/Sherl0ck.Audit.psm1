@@ -11,6 +11,7 @@
     M2: File paths use Get-UniqueFilePath to prevent overwrites.
     M3: ImportExcel installation uses MinimumVersion + SkipModuleInstall support.
     Point 8: Identity & Security audit functions for targeted menu [1] operations.
+    Point 4: Export-OneDriveUsage uses Graph $batch (POST /v1.0/$batch) to reduce API calls by ~20x.
 
 .PARAMETER Uri
     The Microsoft Graph API endpoint URI to query.
@@ -51,35 +52,95 @@ function Get-GraphData {
 }
 
 function Export-OneDriveUsage {
+    <#
+    .SYNOPSIS
+        Collects OneDrive storage usage for all users.
+
+    .DESCRIPTION
+        Queries Microsoft Graph to collect OneDrive storage quotas for all users.
+        Point 4: Uses POST /v1.0/$batch (max 20 requests per batch) to reduce API calls
+        by approximately 20x compared to sequential per-user requests, preventing
+        rate-limit exhaustion on large tenants.
+
+    .PARAMETER SkipModuleInstall
+        Not used in this function (retained for signature consistency).
+
+    .EXAMPLE
+        PS> Export-OneDriveUsage
+        Collects OneDrive storage for all users and exports to CSV.
+    #>
     param(
         [switch]$SkipModuleInstall
     )
 
-    Write-Host "`n[STORAGE] Full OneDrive analysis (All users)..." -ForegroundColor Cyan
+    Write-Host "`n[STORAGE] Full OneDrive analysis (All users)...`n[STORAGE] Using Graph `$batch (20 requests/batch)" -ForegroundColor Cyan
     try {
         $Users = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999"
-        $ODStats = @(); $Count = 0; $MaxRetries = 3
+        $ODStats = @(); $Count = 0; $MaxRetries = 3; $BatchSize = 20
 
-        foreach ($U in $Users) {
-            $Count++; Write-Host "   -> Processing $Count/$($Users.Count) : $($U.displayName)..." -NoNewline -ForegroundColor DarkGray
+        # Point 4 fix: Use POST /v1.0/$batch to reduce Graph API calls by ~20x
+        # Graph $batch allows up to 20 requests per batch
+        $UserChunks = @()
+        for ($i = 0; $i -lt $Users.Count; $i += $BatchSize) {
+            $UserChunks += ,@($Users[$i..[Math]::Min($i + $BatchSize - 1, $Users.Count - 1)])
+        }
+
+        foreach ($Chunk in $UserChunks) {
+            $Count += $Chunk.Count
+            Write-Host "   -> Processing batch: $Count/$($Users.Count) users..." -NoNewline -ForegroundColor DarkGray
+
+            # Build the batch request body
+            $BatchBody = @{
+                requests = @()
+            }
+            $idx = 0
+            foreach ($U in $Chunk) {
+                $BatchBody.requests += @{
+                    id = [string]$idx
+                    method = "GET"
+                    url = "users/$($U.id)/drive"
+                }
+                $idx++
+            }
+
             $RetryCount = 0; $Success = $false
-
             while (-not $Success -and $RetryCount -le $MaxRetries) {
                 try {
-                    $Drive = Invoke-MgGraphRequest -Uri "v1.0/users/$($U.id)/drive" -Method GET -ErrorAction Stop
-                    $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Active"; Used_GB = if($Drive.quota){Convert-BytesToGB $Drive.quota.used}else{0}; Total_GB = if($Drive.quota){Convert-BytesToGB $Drive.quota.total}else{0} }
+                    $BatchResp = Invoke-MgGraphRequest -Uri "v1.0/`$batch" -Method POST -Body ($BatchBody | ConvertTo-Json -Depth 5) -ErrorAction Stop
+                    $BatchResponses = $BatchResp.responses
+
+                    for ($r = 0; $r -lt $BatchResponses.Count; $r++) {
+                        $User = $Chunk[$r]
+                        $Resp = $BatchResponses[$r]
+
+                        if ($Resp.status -eq 404) {
+                            $ODStats += [PSCustomObject]@{ User = $User.displayName; UPN = $User.userPrincipalName; Status = "Not provisioned (Never signed in)"; Used_GB = 0; Total_GB = 0 }
+                        }
+                        elseif ($Resp.status -ge 400) {
+                            $errMsg = "HTTP $($Resp.status)"
+                            Add-SessionLog "ERROR" "OneDrive batch query failed for $($User.userPrincipalName)" $errMsg
+                            $ODStats += [PSCustomObject]@{ User = $User.displayName; UPN = $User.userPrincipalName; Status = "Error ($errMsg)"; Used_GB = 0; Total_GB = 0 }
+                        }
+                        else {
+                            $Drive = $Resp.body
+                            $usedGB = if ($Drive.quota) { Convert-BytesToGB $Drive.quota.used } else { 0 }
+                            $totalGB = if ($Drive.quota) { Convert-BytesToGB $Drive.quota.total } else { 0 }
+                            $ODStats += [PSCustomObject]@{ User = $User.displayName; UPN = $User.userPrincipalName; Status = "Active"; Used_GB = $usedGB; Total_GB = $totalGB }
+                        }
+                    }
                     Write-Host " [OK]" -ForegroundColor Green; $Success = $true
-                } catch {
+                }
+                catch {
                     if ($_.Exception.Message -match "429|Too Many Requests") {
                         $RetryCount++; Start-Sleep -Seconds 5
-                    } elseif ($_.Exception.Message -match "404|Not Found") {
-                        $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Not provisioned (Never signed in)"; Used_GB = 0; Total_GB = 0 }
-                        Write-Host " [N/A]" -ForegroundColor Yellow; $Success = $true
                     } else {
-                        # FIX: Log Graph errors instead of silent data loss (error entry added to ODStats)
+                        # FIX: Log Graph errors instead of silent data loss
                         $errMsg = $_.Exception.Message
-                        Add-SessionLog "ERROR" "OneDrive query failed for $($U.userPrincipalName)" $errMsg
-                        $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Error ($errMsg)"; Used_GB = 0; Total_GB = 0 }
+                        Add-SessionLog "ERROR" "OneDrive batch failed" $errMsg
+                        # Add error entries for all users in this chunk
+                        foreach ($U in $Chunk) {
+                            $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Error ($errMsg)"; Used_GB = 0; Total_GB = 0 }
+                        }
                         Write-Host " [ERROR]" -ForegroundColor Red; $Success = $true
                     }
                 }
