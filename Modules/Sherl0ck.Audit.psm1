@@ -70,6 +70,10 @@ function Export-OneDriveUsage {
                         $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Not provisioned (Never signed in)"; Used_GB = 0; Total_GB = 0 }
                         Write-Host " [N/A]" -ForegroundColor Yellow; $Success = $true
                     } else {
+                        # FIX: Log Graph errors instead of silent data loss (error entry added to ODStats)
+                        $errMsg = $_.Exception.Message
+                        Add-SessionLog "ERROR" "OneDrive query failed for $($U.userPrincipalName)" $errMsg
+                        $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Error ($errMsg)"; Used_GB = 0; Total_GB = 0 }
                         Write-Host " [ERROR]" -ForegroundColor Red; $Success = $true
                     }
                 }
