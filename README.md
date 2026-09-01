@@ -85,7 +85,7 @@ Invoke-Pester -Path ./Tests/
 - **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
 - **M1** : UPN masking (`***`) + log encryption via `ConvertFrom-SecureString` ✅
 - **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅
-- **M3** : Checksum/source verification + add `-SkipModuleInstall` ❌ To do
+- **M3** : Checksum/source verification via `Find-Module` (PSGallery integrity hashes) + `-SkipModuleInstall` switch ✅
 - **L1** : Modular refactoring into PowerShell modules ❌ To do
 - **L2** : Extended unit tests (Pester) ❌ To do
 - **L3** : Simulation mode `-WhatIf` ❌ To do

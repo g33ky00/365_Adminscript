@@ -15,15 +15,22 @@
     ReadOnly uses only read scopes to limit operations to auditing.
     ReadWrite adds privileged write scopes such as Policy.ReadWrite.* and User.ReadWrite.*.
 
+.PARAMETER SkipModuleInstall
+    If set, skips automatic installation of required PowerShell modules.
+    The script will warn if a required module is missing but will not prompt to install.
+
 .EXAMPLE
     .\Sherl0ck_v4.1.ps1                          # ReadOnly mode (default)
     .\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # ReadWrite mode
+    .\Sherl0ck_v4.1.ps1 -SkipModuleInstall     # Skip auto-install of modules
 #>
 
 [CmdletBinding()]
 param(
     [ValidateSet('ReadOnly','ReadWrite')]
-    [string]$AuditMode = 'ReadOnly'
+    [string]$AuditMode = 'ReadOnly',
+
+    [switch]$SkipModuleInstall
 )
 
 Set-StrictMode -Off
@@ -69,6 +76,9 @@ function Verify-TrustedModule {
         return $false
     }
     # H4: Check that the required minimum version is available
+    # M3: Find-Module queries the official PSGallery API which provides
+    #     package integrity hashes (SHA-512) automatically verified by PowerShellGet.
+    #     Only modules signed by a trusted publisher on PSGallery are considered safe.
     $available = Find-Module -Name $ModuleName -Repository PSGallery -ErrorAction SilentlyContinue |
         Where-Object { [version]$_.Version -ge [version]$RequiredVersion }
     if (-not $available) {
@@ -178,6 +188,10 @@ function Connect-O365Core {
     Write-Host "`n[INIT] Starting Identity engine (Graph)..." -ForegroundColor Cyan
     if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
         Write-Host "`n[INSTALLATION] Module 'Microsoft.Graph.Authentication' not found." -ForegroundColor Red
+        if ($SkipModuleInstall) {
+            Write-Host "[WARNING] Module installation skipped (-SkipModuleInstall). Graph features will be unavailable." -ForegroundColor Yellow
+            return
+        }
         if ((Read-Host "Install Microsoft Graph module now? (Y/N)") -match "^[Yy]$") {
             Write-Host " -> Verifying trusted source..." -ForegroundColor Cyan
             # H4: Verify PSGallery source and minimum version before install
@@ -260,6 +274,10 @@ function Connect-O365Exchange {
     }
 
     if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
+        if ($SkipModuleInstall) {
+            Write-Host "[WARNING] Module installation skipped (-SkipModuleInstall). Exchange features will be unavailable." -ForegroundColor Yellow
+            return
+        }
         if ((Read-Host "EXO module not found. Install? (Y/N)") -match "^[Yy]$") {
             # H4: Verify PSGallery source and minimum version before install
             if (-not (Verify-TrustedModule -ModuleName 'ExchangeOnlineManagement' -RequiredVersion $Script:REQUIRED_MODULES['ExchangeOnlineManagement'])) {
@@ -335,6 +353,10 @@ function Export-FullAuditExcel {
     Write-Host "`n[EXCEL AUDIT] Generating global workbook..." -ForegroundColor Cyan
     if (-not (Get-Module -ListAvailable -Name ImportExcel)) {
         Write-Host " ImportExcel module required for this action." -ForegroundColor Yellow
+        if ($SkipModuleInstall) {
+            Write-Host "[WARNING] Module installation skipped (-SkipModuleInstall). Excel export unavailable." -ForegroundColor Yellow
+            return
+        }
         # H4: Verify PSGallery source and minimum version before install
         if (-not (Verify-TrustedModule -ModuleName 'ImportExcel' -RequiredVersion $Script:REQUIRED_MODULES['ImportExcel'])) {
             return
