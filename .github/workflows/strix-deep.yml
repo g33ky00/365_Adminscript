@@ -1,0 +1,37 @@
+name: Strix Security Scan (Deep)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strix-deep
+  cancel-in-progress: false
+
+jobs:
+  strix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Strix
+        run: pip install strix-agent
+
+      - name: Run Security Scan (Deep + Full + High)
+        env:
+          STRIX_LLM: openai/meituan/longcat-2.0:free
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LITELLM_BASE_URL: https://inference-api.nousresearch.com/v1
+          STRIX_REASONING_EFFORT: high
+        run: strix -n -t ./ --scan-mode deep --scope-mode full
