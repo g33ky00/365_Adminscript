@@ -1,8 +1,9 @@
 name: Strix Security Scan (Deep)
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
+# DISABLED: automatic scheduled cron trigger — no auto jobs via GitHub Actions
+#   schedule:
+#     - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
