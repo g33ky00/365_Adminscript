@@ -1,0 +1,27 @@
+title = "UCQCS Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "custom-api-key"
+description = "Generic API key pattern"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
+tags = ["key", "api"]
+
+[[rules]]
+id = "custom-token"
+description = "Generic token pattern"
+regex = '''(?i)(token|secret|password)\s*[:=]\s*['"][a-zA-Z0-9+/=]{16,}['"]'''
+tags = ["token", "secret"]
+
+[allowlist]
+description = "Allowlist for test fixtures and examples"
+paths = [
+  '''\.test\.py$''',
+  '''test_.*\.py$''',
+  '''_test\.go$''',
+  '''\.spec\.js$''',
+  '''example''',
+  '''fixture''',
+]
