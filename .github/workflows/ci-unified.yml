@@ -10,6 +10,6 @@ permissions:
 
 jobs:
   ci:
-    name: UCQCS (reusable v4.5)
-    uses: g33ky00/.github/.github/workflows/ucqcs.yml@v4.5
+    name: UCQCS (reusable v4.7)
+    uses: g33ky00/.github/.github/workflows/ucqcs.yml@v4.7
     secrets: inherit
