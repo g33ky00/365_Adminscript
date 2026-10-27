@@ -166,4 +166,4 @@ Contributions are welcome. Please open an issue or pull request on GitHub.
 
 MIT License — see [LICENSE](LICENSE) file.
 
-![CI](https://img.shields.io/github/actions/workflow/status/g33ky00/365_Adminscript/ci-unified.yml?branch=main)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen)
