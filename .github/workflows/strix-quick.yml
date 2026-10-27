@@ -29,9 +29,44 @@ jobs:
         run: pip install strix-agent
 
       - name: Run Security Scan (Quick + Auto + Medium)
+        id: scan
         env:
           STRIX_LLM: openai/meituan/longcat-2.0:free
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LITELLM_BASE_URL: https://inference-api.nousresearch.com/v1
           STRIX_REASONING_EFFORT: medium
-        run: strix -n -t ./ --scan-mode quick --scope-mode auto
+        run: |
+          set +e
+          strix -n -t ./ --scan-mode quick --scope-mode auto 2>&1 | tee strix-report.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "## Strix Security Scan — Rapport d'erreur" >> strix-report.md
+            echo "" >> strix-report.md
+            echo "### Sortie complète" >> strix-report.md
+            echo '```' >> strix-report.md
+            cat strix-report.txt >> strix-report.md
+            echo '```' >> strix-report.md
+            echo "### Résumé" >> strix-report.md
+            echo "- Exit code: $EXIT_CODE" >> strix-report.md
+            echo "- Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> strix-report.md
+            echo "- Repo: ${{ github.repository }}" >> strix-report.md
+            echo "- PR: ${{ github.event.pull_request.number }}" >> strix-report.md
+          fi
+          exit $EXIT_CODE
+        continue-on-error: true
+
+      - name: Upload report on failure
+        if: steps.scan.outputs.exit_code != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-report-${{ github.run_id }}
+          path: strix-report.md
+          retention-days: 30
+
+      - name: Fail on security issues
+        if: steps.scan.outputs.exit_code != '0'
+        run: |
+          echo "::error::Strix a détecté des vulnérabilités de sécurité. Voir le rapport dans les artifacts."
+          cat strix-report.md
+          exit 1
