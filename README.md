@@ -137,7 +137,7 @@ MIT — See LICENSE for details.
 
 Developed by g33ky00 — based on the Sherl0ck v4.1 tool.
 
-## À propos
+## About
 
 365_Adminscript is a PowerShell-based unified administration console for Microsoft 365 (Entra ID, Exchange Online, Intune). It provides comprehensive audit, security analysis, and reporting capabilities through a single interface.
 
@@ -158,11 +158,11 @@ Developed by g33ky00 — based on the Sherl0ck v4.1 tool.
 - **Testing:** Pester
 - **CI:** UCQCS v4.5 (GitHub Actions)
 
-## Contribution
+## Contributing
 
 Contributions are welcome. Please open an issue or pull request on GitHub.
 
-## Licence
+## License
 
 MIT License — see [LICENSE](LICENSE) file.
 
