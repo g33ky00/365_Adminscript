@@ -31,7 +31,7 @@ jobs:
       - name: Run Security Scan (Quick + Auto + Medium)
         id: scan
         env:
-          STRIX_LLM: openai/reflection/beam-1.0-501b-a23b:free
+          STRIX_LLM: stepfun/step-3.7-flash:free
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LITELLM_BASE_URL: https://inference-api.nousresearch.com/v1
           STRIX_REASONING_EFFORT: medium
