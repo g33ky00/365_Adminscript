@@ -11,5 +11,5 @@ permissions:
 jobs:
   ci:
     name: UCQCS (reusable v4.11)
-    uses: g33ky00/.github/.github/workflows/ucqcs.yml@v4.11
+    uses: g33ky00/.github/.github/workflows/ucqcs.yml@v4.12
     secrets: inherit
