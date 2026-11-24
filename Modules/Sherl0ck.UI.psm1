@@ -183,7 +183,7 @@ function Show-SessionLogs {
     Write-Host " Directory : $GLOBAL:LOG_DIR" -ForegroundColor Yellow
     if ($GLOBAL:SESSION_LOGS.Count -eq 0) { Write-Host " [INFO] No events." -ForegroundColor DarkGray }
     else { foreach ($Log in $GLOBAL:SESSION_LOGS) { Write-Host " $Log" -ForegroundColor $(if($Log -match "\[ERROR\]"){"Red"}elseif($Log -match "\[WARNING\]"){"Yellow"}else{"DarkGray"}) } }
-    $Choice = Read-Host "`n[O] Open directory | [0] Back"
+    $Choice = if ($Host.UI.RawUI) { Read-Host "`n[O] Open directory | [0] Back" } else { "0" }
     if ($Choice -match "^[Oo]$") { Invoke-SafeOpen -FilePath $GLOBAL:LOG_DIR }
 }
 
