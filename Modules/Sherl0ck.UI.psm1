@@ -88,9 +88,17 @@ function Protect-Export {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
     $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
     try {
-        $text = Get-Content -Path $InputPath -Raw
-        $masked = Mask-SensitiveData -InputText $text
-        $bytes = [Text.Encoding]::UTF8.GetBytes($masked)
+        $bytes = [IO.File]::ReadAllBytes($InputPath)
+        # Apply UPN masking only when the content is text (best-effort detection).
+        try {
+            $text = [Text.Encoding]::UTF8.GetString($bytes)
+            if (-not $text.Contains([char]0)) {
+                $masked = Mask-SensitiveData -InputText $text
+                $bytes = [Text.Encoding]::UTF8.GetBytes($masked)
+            }
+        } catch {
+            # Binary content: leave bytes untouched.
+        }
 
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         $salt = New-Object byte[] 16; $rng.GetBytes($salt)
@@ -149,11 +157,16 @@ function Unprotect-Export {
         $aes = New-Object Security.Cryptography.AesGcm($key)
         $plainBytes = New-Object byte[] $cipherLen
         $aes.Decrypt($nonce, $cipher, $tag, $plainBytes)
-        $text = [Text.Encoding]::UTF8.GetString($plainBytes)
         if ($OutputPath) {
-            Set-Content -Path $OutputPath -Value $text -Encoding UTF8
+            [IO.File]::WriteAllBytes($OutputPath, $plainBytes)
         } else {
-            return $text
+            try {
+                $text = [Text.Encoding]::UTF8.GetString($plainBytes)
+                if ($text.Contains([char]0)) { return $plainBytes }
+                return $text
+            } catch {
+                return $plainBytes
+            }
         }
     }
     finally {
