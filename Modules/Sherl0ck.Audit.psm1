@@ -92,7 +92,7 @@ function Export-OneDriveUsage {
 
     Write-Host "`n[STORAGE] Full OneDrive analysis (All users)...`n[STORAGE] Using Graph `$batch (20 requests/batch)" -ForegroundColor Cyan
     try {
-        $UsersResult = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999"
+        try { $UsersResult = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999" } catch { Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message; return $null }
         if (-not $UsersResult.Complete) {
             Write-Host " [WARNING] Partial Graph data: $($UsersResult.TruncatedAt)" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-OneDriveUsage" "Incomplete data at $($UsersResult.TruncatedAt)"
@@ -196,7 +196,8 @@ function Export-OneDriveUsage {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-OneDriveUsage" "Export non chiffré — données sensibles exposées"
         } else {
-            Protect-Export -FilePath $Path -Password $ExportPassword
+            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+            Protect-Export -FilePath $Path -Password $SecureExportPassword
         }
         return $ODStats
     } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red; Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message }
@@ -231,31 +232,31 @@ function Export-FullAuditExcel {
 
     try {
         Write-Host " - Collecting Users..." -ForegroundColor DarkGray
-        $UsersR = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName,mail,usageLocation,assignedLicenses,userType,accountEnabled"
+        try { $UsersR = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName,mail,usageLocation,assignedLicenses,userType,accountEnabled" } catch { Add-SessionLog "ERROR" "Export-FullAuditExcel" $_.Exception.Message; return $null }
         if (-not $UsersR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $UsersR.TruncatedAt }
         $Users = $UsersR.Data
         $Users | Select-Object displayName, userPrincipalName, accountEnabled, userType | Export-Excel -Path $XlsxPath -WorksheetName "Users" -AutoSize -AutoFilter
 
         Write-Host " - Collecting Licenses..." -ForegroundColor DarkGray
-        $SkusR = Get-GraphData "v1.0/subscribedSkus"
+        try { $SkusR = Get-GraphData "v1.0/subscribedSkus" } catch { Add-SessionLog "ERROR" "Export-FullAuditExcel" $_.Exception.Message; return $null }
         if (-not $SkusR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $SkusR.TruncatedAt }
         $Skus = $SkusR.Data
         $Skus | Select-Object skuPartNumber, @{n='Total';e={$_.prepaidUnits.enabled}}, @{n='Consumed';e={$_.consumedUnits}} | Export-Excel -Path $XlsxPath -WorksheetName "Licenses" -AutoSize -AutoFilter -Append
 
         Write-Host " - Collecting MFA Status..." -ForegroundColor DarkGray
-        $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        try { $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails" } catch { Add-SessionLog "ERROR" "Export-FullAuditExcel" $_.Exception.Message; return $null }
         if (-not $MFAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $MFAR.TruncatedAt }
         $MFA = $MFAR.Data
         $MFA | Select-Object userDisplayName, userPrincipalName, isMfaRegistered, @{n='Methods';e={$_.methodsRegistered -join ', '}} | Export-Excel -Path $XlsxPath -WorksheetName "MFA" -AutoSize -AutoFilter -Append
 
         Write-Host " - Collecting Devices..." -ForegroundColor DarkGray
-        $DevicesR = Get-GraphData "v1.0/devices"
+        try { $DevicesR = Get-GraphData "v1.0/devices" } catch { Add-SessionLog "ERROR" "Export-FullAuditExcel" $_.Exception.Message; return $null }
         if (-not $DevicesR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $DevicesR.TruncatedAt }
         $Devices = $DevicesR.Data
         if ($Devices) { $Devices | Select-Object displayName, operatingSystem, isCompliant, trustType, approximateLastSignInDateTime | Export-Excel -Path $XlsxPath -WorksheetName "Devices" -AutoSize -AutoFilter -Append }
 
         Write-Host " - Collecting Domains..." -ForegroundColor DarkGray
-        $DomainsR = Get-GraphData "v1.0/domains"
+        try { $DomainsR = Get-GraphData "v1.0/domains" } catch { Add-SessionLog "ERROR" "Export-FullAuditExcel" $_.Exception.Message; return $null }
         if (-not $DomainsR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $DomainsR.TruncatedAt }
         $Domains = $DomainsR.Data
         $Domains | Select-Object id, isVerified, isDefault | Export-Excel -Path $XlsxPath -WorksheetName "Domains" -AutoSize -AutoFilter -Append
@@ -268,7 +269,8 @@ function Export-FullAuditExcel {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-FullAuditExcel" "Export non chiffré — données sensibles exposées"
         } else {
-            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+            Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
         }
 
         Write-Host "`n[SUCCESS] Excel audit complete: $XlsxPath" -ForegroundColor Green
@@ -328,7 +330,7 @@ function Get-MFAStatus {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting MFA status..." -ForegroundColor Cyan
     try {
-        $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        try { $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails" } catch { Add-SessionLog "ERROR" "Get-MFAStatus" $_.Exception.Message; return $null }
         if (-not $MFAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-MFAStatus" $MFAR.TruncatedAt }
         $MFA = $MFAR.Data
         $Summary = $MFA | Group-Object -Property isMfaRegistered | ForEach-Object {
@@ -362,7 +364,7 @@ function Get-ConditionalAccessPolicies {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting Conditional Access policies..." -ForegroundColor Cyan
     try {
-        $CAR = Get-GraphData "v1.0/identity/conditionalAccess/policies"
+        try { $CAR = Get-GraphData "v1.0/identity/conditionalAccess/policies" } catch { Add-SessionLog "ERROR" "Get-ConditionalAccessPolicies" $_.Exception.Message; return $null }
         if (-not $CAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-ConditionalAccessPolicies" $CAR.TruncatedAt }
         $CAPolicies = $CAR.Data
         $CAPolicies | ForEach-Object {
@@ -397,7 +399,7 @@ function Get-OAuthApplications {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting OAuth applications..." -ForegroundColor Cyan
     try {
-        $AppsR = Get-GraphData "v1.0/applications?`$select=displayName,appId,web,spa,signInAudience,requiredResourceAccess"
+        try { $AppsR = Get-GraphData "v1.0/applications?`$select=displayName,appId,web,spa,signInAudience,requiredResourceAccess" } catch { Add-SessionLog "ERROR" "Get-OAuthApplications" $_.Exception.Message; return $null }
         if (-not $AppsR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-OAuthApplications" $AppsR.TruncatedAt }
         $Apps = $AppsR.Data
         $Apps | ForEach-Object {
@@ -431,7 +433,7 @@ function Get-RoleBasedAccess {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting role-based access..." -ForegroundColor Cyan
     try {
-        $RolesR = Get-GraphData "v1.0/directoryRoles?`$expand=members"
+        try { $RolesR = Get-GraphData "v1.0/directoryRoles?`$expand=members" } catch { Add-SessionLog "ERROR" "Get-RoleBasedAccess" $_.Exception.Message; return $null }
         if (-not $RolesR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-RoleBasedAccess" $RolesR.TruncatedAt }
         $Roles = $RolesR.Data
         $PrivilegedRoles = @("62e90394-69f5-423b-847e-217ed8c7fd18", "72fafb87-16d5-45d8-91ac-1dcd94a8a94e", "88d87e72-8544-4bbd-9b9e-06d0361df1aa")
@@ -498,7 +500,8 @@ function Export-IdentitySecurityExcel {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-IdentitySecurityExcel" "Export non chiffré — données sensibles exposées"
         } else {
-            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+            Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
         }
 
         Write-Host "`n[SUCCESS] Identity audit complete: $XlsxPath" -ForegroundColor Green
