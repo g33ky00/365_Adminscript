@@ -75,7 +75,9 @@ function Export-OneDriveUsage {
         Collects OneDrive storage for all users and exports to CSV.
     #>
     param(
-        [switch]$SkipModuleInstall
+        [switch]$SkipModuleInstall,
+        [switch]$NoEncrypt,
+        [string]$ExportPassword
     )
 
     Write-Host "`n[STORAGE] Full OneDrive analysis (All users)...`n[STORAGE] Using Graph `$batch (20 requests/batch)" -ForegroundColor Cyan
@@ -180,13 +182,21 @@ function Export-OneDriveUsage {
         # M2: Collision-safe file path
         $Path = Get-UniqueFilePath -BasePath (Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv")
         $ODStats | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8BOM
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-OneDriveUsage" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $Path -Password $ExportPassword
+        }
         return $ODStats
     } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red; Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message }
 }
 
 function Export-FullAuditExcel {
     param(
-        [switch]$SkipModuleInstall
+        [switch]$SkipModuleInstall,
+        [switch]$NoEncrypt,
+        [string]$ExportPassword
     )
 
     Write-Host "`n[EXCEL AUDIT] Generating global workbook..." -ForegroundColor Cyan
@@ -243,6 +253,13 @@ function Export-FullAuditExcel {
         Write-Host " - Collecting OneDrive..." -ForegroundColor DarkGray
         $OD = Export-OneDriveUsage -SkipModuleInstall:$SkipModuleInstall
         if ($OD) { $OD | Export-Excel -Path $XlsxPath -WorksheetName "OneDrive" -AutoSize -AutoFilter -Append }
+
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-FullAuditExcel" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+        }
 
         Write-Host "`n[SUCCESS] Excel audit complete: $XlsxPath" -ForegroundColor Green
         Add-SessionLog "ACTION" "Excel export successful" $XlsxPath
@@ -442,7 +459,7 @@ function Export-IdentitySecurityExcel {
         PS> Export-IdentitySecurityExcel
         Generates Identity_Security_Audit_<tenant>_<date>.xlsx
     #>
-    param([switch]$SkipModuleInstall)
+    param([switch]$SkipModuleInstall, [switch]$NoEncrypt, [string]$ExportPassword)
 
     $DateStr = Get-Date -Format "yyyyMMdd_HHmm"
     # M2: Collision-safe file path
@@ -466,6 +483,13 @@ function Export-IdentitySecurityExcel {
         Write-Host " - Role-Based Access..." -ForegroundColor DarkGray
         $Roles = Get-RoleBasedAccess -SkipModuleInstall:$SkipModuleInstall
         if ($Roles) { $Roles | Select-Object displayName, id | Export-Excel -Path $XlsxPath -WorksheetName "RBAC" -AutoSize -AutoFilter -Append }
+
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-IdentitySecurityExcel" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+        }
 
         Write-Host "`n[SUCCESS] Identity audit complete: $XlsxPath" -ForegroundColor Green
         Add-SessionLog "ACTION" "Identity security export successful" $XlsxPath
