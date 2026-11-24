@@ -7,6 +7,8 @@
     Run with: Invoke-Pester -Path ./Tests/Sherl0ck.Tests.Auth.ps1
 #>
 
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Auth.psm1") -Force
+
 Describe 'Verify-TrustedModule' {
     It 'Should return true for PSGallery-verified modules' {
         # This test requires PSGallery to be registered

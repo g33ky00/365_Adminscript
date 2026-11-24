@@ -8,7 +8,7 @@
 #>
 
 # Import the audit module before testing
-# Import-Module ../Modules/Sherl0ck.Audit.psm1
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Audit.psm1") -Force
 
 Describe 'Get-MFAStatus' {
     It 'Should return $null when not connected to Graph' {

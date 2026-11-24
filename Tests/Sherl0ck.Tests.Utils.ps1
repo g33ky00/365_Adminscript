@@ -10,6 +10,8 @@
 # Requires Pester module
 # Install-Module Pester -Scope CurrentUser -Force
 
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Utils.psm1") -Force
+
 Describe 'Convert-BytesToGB' {
     It 'Should return 0 for zero or negative bytes' {
         Convert-BytesToGB -Bytes 0 | Should -Be 0

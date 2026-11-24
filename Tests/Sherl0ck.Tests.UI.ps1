@@ -7,6 +7,8 @@
     Run with: Invoke-Pester -Path ./Tests/Sherl0ck.Tests.UI.ps1
 #>
 
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.UI.psm1") -Force
+
 Describe 'Mask-SensitiveData' {
     It 'Should mask UPNs (email addresses)' {
         $result = Mask-SensitiveData -InputText "admin@contoso.com"
