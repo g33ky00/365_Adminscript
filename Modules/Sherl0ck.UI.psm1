@@ -71,7 +71,11 @@ function Add-SessionLog {
 
     $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
     $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
-    Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
+    if ($GLOBAL:LOG_FILE) {
+        $logDir = Split-Path $GLOBAL:LOG_FILE -Parent
+        if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+        Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
+    }
 }
 
 function Protect-Export {
