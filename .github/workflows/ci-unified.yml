@@ -34,7 +34,7 @@ jobs:
         run: |
           Install-Module Microsoft.PowerShell.SecretManagement -Force -SkipPublisherCheck -Scope CurrentUser
           Install-Module Microsoft.PowerShell.SecretStore -Force -SkipPublisherCheck -Scope CurrentUser
-          Set-SecretStoreConfiguration -Authentication None -Interaction None -Confirm:$false
+          Set-SecretStoreConfiguration -Password (ConvertTo-SecureString 'TestPassword123!' -AsPlainText -Force) -Authentication None -Interaction None -Confirm:$false
           Register-SecretVault -Name 'Sherl0ckVault' -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
         shell: pwsh
 
