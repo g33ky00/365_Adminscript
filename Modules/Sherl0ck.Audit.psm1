@@ -198,9 +198,9 @@ function Export-OneDriveUsage {
         } else {
             if ($ExportPassword) {
                 $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-                Protect-Export -FilePath $Path -Password $SecureExportPassword
+                Protect-Export -InputPath $Path -Password $SecureExportPassword
             } else {
-                Protect-Export -FilePath $Path
+                Protect-Export -InputPath $Path
             }
         }
         return $ODStats
@@ -275,9 +275,9 @@ function Export-FullAuditExcel {
         } else {
             if ($ExportPassword) {
                 $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-                Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+                Protect-Export -InputPath $XlsxPath -Password $SecureExportPassword
             } else {
-                Protect-Export -FilePath $XlsxPath
+                Protect-Export -InputPath $XlsxPath
             }
         }
 
@@ -510,9 +510,9 @@ function Export-IdentitySecurityExcel {
         } else {
             if ($ExportPassword) {
                 $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-                Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+                Protect-Export -InputPath $XlsxPath -Password $SecureExportPassword
             } else {
-                Protect-Export -FilePath $XlsxPath
+                Protect-Export -InputPath $XlsxPath
             }
         }
 
