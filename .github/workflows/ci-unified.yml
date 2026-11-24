@@ -33,7 +33,7 @@ jobs:
       - name: Run Pester tests
         run: |
           $config = New-PesterConfiguration
-          $config.Run.Path = './Tests/'
+          $config.Run.Path = (Get-ChildItem -Path './Tests/' -Filter '*.ps1' | Select-Object -ExpandProperty FullName)
           $config.Output.Verbosity = 'Detailed'
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = (Get-ChildItem -Path . -Filter '*.ps1' -Recurse | Select-Object -ExpandProperty FullName)
