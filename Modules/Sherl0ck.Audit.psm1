@@ -196,8 +196,12 @@ function Export-OneDriveUsage {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-OneDriveUsage" "Export non chiffré — données sensibles exposées"
         } else {
-            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-            Protect-Export -FilePath $Path -Password $SecureExportPassword
+            if ($ExportPassword) {
+                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                Protect-Export -FilePath $Path -Password $SecureExportPassword
+            } else {
+                Protect-Export -FilePath $Path
+            }
         }
         return $ODStats
     } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red; Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message }
@@ -269,8 +273,12 @@ function Export-FullAuditExcel {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-FullAuditExcel" "Export non chiffré — données sensibles exposées"
         } else {
-            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-            Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+            if ($ExportPassword) {
+                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+            } else {
+                Protect-Export -FilePath $XlsxPath
+            }
         }
 
         Write-Host "`n[SUCCESS] Excel audit complete: $XlsxPath" -ForegroundColor Green
@@ -500,8 +508,12 @@ function Export-IdentitySecurityExcel {
             Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
             Add-SessionLog "WARNING" "Export-IdentitySecurityExcel" "Export non chiffré — données sensibles exposées"
         } else {
-            $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
-            Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+            if ($ExportPassword) {
+                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                Protect-Export -FilePath $XlsxPath -Password $SecureExportPassword
+            } else {
+                Protect-Export -FilePath $XlsxPath
+            }
         }
 
         Write-Host "`n[SUCCESS] Identity audit complete: $XlsxPath" -ForegroundColor Green
