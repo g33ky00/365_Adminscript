@@ -147,7 +147,7 @@ MIT — See LICENSE for details.
 
 ## Credits
 
-Developed by g33ky00 — based on the Sherl0ck v4.1 tool.
+Developed by Coresynq — g33ky00.
 
 ## About
 
