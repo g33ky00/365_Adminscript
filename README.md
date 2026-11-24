@@ -124,7 +124,7 @@ Invoke-Pester -Path ./Tests/
 - **M3** : `Find-Module` source + version verification + **real SHA-512 hash comparison** ✅
 - **L1** : Modular refactoring into PowerShell modules (Utils, UI, Auth, Audit, Exchange) ✅
 - **L2** : Extended unit tests (Pester) ✅
-- **L3** : Simulation mode `-WhatIf` ❌ To do
+- **L3** : Simulation mode `-WhatIf` ✅
 - **FIX-3** : Browser fallback (Edge→Firefox→Chrome) ✅
 - **FIX-6** : Privileged scopes now conditionally requested in ReadWrite mode (CA creation) ✅
 - **Point 8** : Identity & Security audit + CA creation (MFA by terminal) ✅
@@ -134,7 +134,7 @@ Invoke-Pester -Path ./Tests/
 - **FIX-7** : Silent error loss → Add-SessionLog ✅
 - **Audit findings** : 15 empty catch blocks replaced with `Add-SessionLog` ✅
 - **I1** : Configuration externalization (`Config/config.json.example`) ✅
-- **I2** : Multilingual support (fr-FR / en-US) ❌ To do
+- **I2** : Multilingual support (fr-FR / en-US) ✅
 - **Point 9** : REQUIRED_MODULE_VERSIONS readonly hash ✅
 - **I3** : Integrated documentation (help XML comments) ✅
 - **v5** : Break-Glass config persisted in JSON (`Sherl0ck_Config.json`) ✅

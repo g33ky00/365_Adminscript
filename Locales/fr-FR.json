@@ -1,0 +1,27 @@
+{
+  "Menu": {
+    "Title": "SHERL0CK V5 - META CONSOLE UNIFIEE",
+    "Tenant": "Tenant cible",
+    "BreakGlass": "Break-Glass",
+    "AuditMode": "Mode audit",
+    "AwaitingConnection": "En attente de connexion...",
+    "NotDefined": "NON DEFINI",
+    "IdentitySecurity": "IDENTITY & SECURITY (MFA, Acces Conditionnel)",
+    "ExchangeOnline": "EXCHANGE ONLINE (Boites, Quotas, Redirections)",
+    "Audit365": "AUDIT 365 (Collecte complete + Export Excel)",
+    "BreakGlassMenu": "BREAK-GLASS (Compte de secours)",
+    "SessionLogs": "JOURNAUX DE SESSION (Logs et erreurs)",
+    "DisconnectQuit": "DECONNEXION ET QUITTER",
+    "Module": "Module",
+    "Back": "Retour"
+  },
+  "Status": {
+    "Success": "SUCCES",
+    "Error": "ERREUR",
+    "Info": "INFO"
+  },
+  "Exchange": {
+    "QuotaUpdated": "Quota mis a jour.",
+    "RedirectUpdated": "Redirection mise a jour."
+  }
+}

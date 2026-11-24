@@ -47,6 +47,20 @@ Describe 'Add-SessionLog' {
     }
 }
 
+Describe 'Get-LocalizedString' {
+    It 'Should return English string' {
+        $result = Get-LocalizedString -Key 'Status.Success' -Language 'en-US'
+        $result | Should -Be 'SUCCESS'
+    }
+    It 'Should return French string' {
+        $result = Get-LocalizedString -Key 'Status.Success' -Language 'fr-FR'
+        $result | Should -Be 'SUCCES'
+    }
+    It 'Should fallback to key for missing' {
+        $result = Get-LocalizedString -Key 'Nope.Missing' -Language 'en-US'
+        $result | Should -Be 'Nope.Missing'
+    }
+}
 Describe 'Show-SessionLogs' {
     It 'Should not throw when no logs exist' {
         $GLOBAL:SESSION_LOGS = @()

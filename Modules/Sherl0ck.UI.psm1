@@ -95,4 +95,23 @@ function Show-SessionLogs {
     if ($Choice -match "^[Oo]$") { Invoke-SafeOpen -FilePath $GLOBAL:LOG_DIR }
 }
 
-Export-ModuleMember -Function Mask-SensitiveData, Add-SessionLog, Show-SessionLogs
+function Get-LocalizedString {
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [string]$Language = 'en-US'
+    )
+    $localePath = Join-Path $PSScriptRoot "..\\Locales\\$Language.json"
+    if (-not (Test-Path $localePath)) { $localePath = Join-Path $PSScriptRoot "..\\Locales\\en-US.json" }
+    try {
+        $locale = Get-Content -Path $localePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch { return $Key }
+    $parts = $Key -split '\\.'
+    $node = $locale
+    foreach ($p in $parts) {
+        if ($node -and $node.PSObject.Properties.Name -contains $p) { $node = $node.$p } else { return $Key }
+    }
+    if ($node -is [string]) { return $node }
+    return $Key
+}
+
+Export-ModuleMember -Function Mask-SensitiveData, Add-SessionLog, Show-SessionLogs, Get-LocalizedString

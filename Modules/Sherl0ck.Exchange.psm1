@@ -7,6 +7,7 @@
     Part of the 365_Adminscript modular architecture.
 #>
 
+[CmdletBinding(SupportsShouldProcess)]
 function Show-MenuExchange {
     param([switch]$SkipModuleInstall)
     if (-not $GLOBAL:EXO_CONNECTED) {
@@ -37,21 +38,25 @@ function Show-MenuExchange {
             $upn = Read-Host " UPN de la boite"
             $quota = Read-Host " Nouveau quota (ex: 50GB)"
             if ($upn -and $quota) {
-                try {
-                    Set-Mailbox -Identity $upn -ProhibitSendReceiveQuota $quota -ErrorAction Stop
-                    Write-Host "[SUCCES] Quota mis a jour." -ForegroundColor Green
-                    if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ACTION" "Quota $upn -> $quota" }
-                } catch { if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ERREUR" "Modification quota" $_.Exception.Message } }
+                if ($PSCmdlet.ShouldProcess($upn, "Set quota $quota")) {
+                    try {
+                        Set-Mailbox -Identity $upn -ProhibitSendReceiveQuota $quota -ErrorAction Stop
+                        Write-Host "[SUCCES] Quota mis a jour." -ForegroundColor Green
+                        if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ACTION" "Quota $upn -> $quota" }
+                    } catch { if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ERREUR" "Modification quota" $_.Exception.Message } }
+                }
             }
         }
         if ($Choice -eq "3") {
             $upn = Read-Host " UPN de la boite"
             $fwd = Read-Host " Adresse de redirection (vide pour desactiver)"
             try {
-                if ($fwd) { Set-Mailbox -Identity $upn -ForwardingSmtpAddress $fwd -DeliverToMailboxAndForward $true }
-                else { Set-Mailbox -Identity $upn -ForwardingSmtpAddress $null }
-                Write-Host "[SUCCES] Redirection mise a jour." -ForegroundColor Green
-                if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ACTION" "Redirection $upn -> $fwd" }
+                if ($PSCmdlet.ShouldProcess($upn, "Set redirect $fwd")) {
+                    if ($fwd) { Set-Mailbox -Identity $upn -ForwardingSmtpAddress $fwd -DeliverToMailboxAndForward $true }
+                    else { Set-Mailbox -Identity $upn -ForwardingSmtpAddress $null }
+                    Write-Host "[SUCCES] Redirection mise a jour." -ForegroundColor Green
+                    if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ACTION" "Redirection $upn -> $fwd" }
+                }
             } catch { if (Get-Command Add-SessionLog -ErrorAction SilentlyContinue) { Add-SessionLog "ERREUR" "Redirection" $_.Exception.Message } }
         }
         if ($Choice -eq "4") {

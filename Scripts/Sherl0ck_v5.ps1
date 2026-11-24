@@ -3,7 +3,10 @@
 param(
     [ValidateSet('ReadOnly','ReadWrite')]
     [string]$AuditMode = 'ReadOnly',
-    [switch]$SkipModuleInstall
+    [switch]$SkipModuleInstall,
+    [ValidateSet('en-US','fr-FR')]
+    [string]$Language = 'en-US',
+    [switch]$WhatIf
 )
 
 Set-StrictMode -Version 3.0
@@ -37,6 +40,9 @@ foreach ($moduleName in @('Sherl0ck.Utils', 'Sherl0ck.UI', 'Sherl0ck.Auth', 'She
         Write-Host "[ERROR] Module not found: $moduleName at $modulePath" -ForegroundColor Red
     }
 }
+
+$GLOBAL:LANGUAGE = $Language
+$GLOBAL:WHATIF_MODE = [bool]$WhatIf
 
 # Config / Break-Glass
 function Load-Configuration {
