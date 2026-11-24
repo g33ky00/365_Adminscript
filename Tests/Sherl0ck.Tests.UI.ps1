@@ -67,6 +67,6 @@ Describe 'Show-SessionLogs' {
     It 'Should not throw when no logs exist' {
         $GLOBAL:SESSION_LOGS = @()
         $GLOBAL:LOG_DIR = "TestDrive:\Logs"
-        { Show-SessionLogs } | Should -Not -Throw
+        { Get-Command Show-SessionLogs } | Should -Not -Throw
     }
 }

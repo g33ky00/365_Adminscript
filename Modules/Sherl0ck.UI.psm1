@@ -32,7 +32,7 @@
     Part of the 365_Adminscript modular architecture.
 #>
 function Mask-SensitiveData {
-    param([AllowNull()][string]$InputText)
+    param([AllowNull()][object]$InputText)
     if ($null -eq $InputText) { return $null }
     if (-not $InputText) { return $InputText }
     $Masked = $InputText -replace '(?i)\b[\w\.\-\+]+@[\w\.\-]+\.\w{2,}\b', '***'
