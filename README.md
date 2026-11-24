@@ -7,7 +7,8 @@
 - 🔐 Graph & Exchange authentication via device code flow
 - 🧾 Full audit export to Excel (Users, MFA, Devices, Licenses, Domains, OneDrive)
 - 📊 Intelligent Graph API throttling management
-- 🧼 Secure logging that masks sensitive UPNs + portable AES key encryption (key file in separate `Sherl0ck_Secrets` directory with explicit NTFS ACL)
+- 🧼 Secure logging that masks sensitive UPNs + encrypted session logs (AES key via SecretManagement vault, no plaintext fallback)
+- 🔐 Encrypted exports at rest (Protect-Export/Unprotect-Export, AES-256-GCM, password-based, PBKDF2 100k)
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
 - 🛡 PowerShell modules pinned and verified via official PSGallery (MinimumVersion + SHA-512 hash comparison)
 - 🧱 Modular and testable architecture with Pester (5 modules + entry points + 4 test files)
