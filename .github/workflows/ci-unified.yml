@@ -1,60 +1,11 @@
-name: CI Checks
+name: CI Unified
 on:
-  workflow_dispatch:
   push:
+    branches: [main, master]
   pull_request:
-
-permissions:
-  contents: read
-
+    branches: [main, master]
+  workflow_dispatch:
 jobs:
   ucqcs:
-    uses: g33ky00/.github/.github/workflows/ucqcs.yml@v4.12
+    uses: g33ky00/.github/.github/workflows/ucqcs.yml@main
     secrets: inherit
-
-  pester:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install PowerShell
-        run: |
-          if ! command -v pwsh &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y powershell
-          fi
-        shell: bash
-
-      - name: Install Pester (latest)
-        run: Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser
-        shell: pwsh
-
-      - name: Install SecretManagement
-        run: |
-          Install-Module Microsoft.PowerShell.SecretManagement -Force -SkipPublisherCheck -Scope CurrentUser
-          Install-Module Microsoft.PowerShell.SecretStore -Force -SkipPublisherCheck -Scope CurrentUser
-          Set-SecretStoreConfiguration -Password (ConvertTo-SecureString 'TestPassword123!' -AsPlainText -Force) -Authentication None -Interaction None -Confirm:$false
-          Register-SecretVault -Name 'Sherl0ckVault' -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
-        shell: pwsh
-
-      - name: Run Pester tests
-        run: |
-          $config = New-PesterConfiguration
-          $config.Run.Path = (Get-ChildItem -Path './Tests/' -Filter '*.ps1' | Select-Object -ExpandProperty FullName)
-          $config.Output.Verbosity = 'Detailed'
-          $config.CodeCoverage.Enabled = $true
-          $config.CodeCoverage.Path = (Get-ChildItem -Path . -Filter '*.ps1' -Recurse | Select-Object -ExpandProperty FullName)
-          $config.TestResult.Enabled = $true
-          $config.TestResult.OutputPath = 'TestResults.xml'
-          $config.TestResult.OutputFormat = 'NUnitXml'
-          Invoke-Pester -Configuration $config
-        shell: pwsh
-
-      - name: Publish test results
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Pester Tests
-          path: TestResults.xml
-          reporter: dotnet-nunit
