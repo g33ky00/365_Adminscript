@@ -81,9 +81,10 @@ function Add-SessionLog {
 function Protect-Export {
     param(
         [Parameter(Mandatory)][string]$InputPath,
-        [Parameter(Mandatory)][string]$OutputPath,
+        [string]$OutputPath,
         [System.Security.SecureString]$Password
     )
+    if (-not $OutputPath) { $OutputPath = $InputPath }
     if (-not $Password) { $Password = Read-Host -Prompt 'Export password' -AsSecureString }
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
     $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
