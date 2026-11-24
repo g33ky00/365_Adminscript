@@ -47,7 +47,7 @@ Describe 'Export-IdentitySecurityExcel' {
         $GLOBAL:EXO_CONNECTED = $false
         $GLOBAL:AUDIT_DIR = "TestDrive:\Audits"
         $GLOBAL:TENANT_NAME = "TestTenant"
-        { Export-IdentitySecurityExcel -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+        { Export-IdentitySecurityExcel -SkipModuleInstall -NoEncrypt -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }
 
@@ -56,7 +56,7 @@ Describe 'Export-OneDriveUsage (Point 4: $batch)' {
         $GLOBAL:GRAPH_CONNECTED = $false
         $GLOBAL:AUDIT_DIR = "TestDrive:\Audits"
         $GLOBAL:TENANT_NAME = "TestTenant"
-        { Export-OneDriveUsage -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
+        { Export-OneDriveUsage -SkipModuleInstall -NoEncrypt -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 
     It 'Should use $batch endpoint (POST /v1.0/$batch)' {
