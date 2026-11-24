@@ -62,8 +62,8 @@ Describe 'Export-OneDriveUsage (Point 4: $batch)' {
     It 'Should use $batch endpoint (POST /v1.0/$batch)' {
         # This is a structural check — verify the function contains the batch endpoint
         $auditModuleContent = Get-Content (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Audit.psm1") -Raw
-        $auditModuleContent | Should -Contain '$batch'
-        $auditModuleContent | Should -Contain 'v1.0/$batch'
-        $auditModuleContent | Should -Contain 'BatchSize = 20'
+        $auditModuleContent | Should -Match '\$batch'
+        $auditModuleContent | Should -Match 'v1\.0/\$batch'
+        $auditModuleContent | Should -Match 'BatchSize = 20'
     }
 }
