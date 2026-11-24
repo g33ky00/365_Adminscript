@@ -34,9 +34,8 @@ jobs:
         run: |
           Install-Module Microsoft.PowerShell.SecretManagement -Force -SkipPublisherCheck -Scope CurrentUser
           Install-Module Microsoft.PowerShell.SecretStore -Force -SkipPublisherCheck -Scope CurrentUser
-          $password = ConvertTo-SecureString 'TestPassword123!' -AsPlainText -Force
+          Set-SecretStoreConfiguration -Authentication None -Interaction None -Confirm:$false -Force
           Register-SecretVault -Name 'Sherl0ckVault' -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
-          Set-SecretStoreConfiguration -Authentication None -Interaction None -Confirm:$false
         shell: pwsh
 
       - name: Run Pester tests
