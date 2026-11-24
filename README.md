@@ -10,24 +10,28 @@
 - 🧼 Secure logging that masks sensitive UPNs + portable AES key encryption (key file in separate `Sherl0ck_Secrets` directory with explicit NTFS ACL)
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
 - 🛡 PowerShell modules pinned and verified via official PSGallery (MinimumVersion + SHA-512 hash comparison)
-- 🧱 Modular and testable architecture with Pester (4 modules + entry point + 4 test files)
+- 🧱 Modular and testable architecture with Pester (5 modules + entry points + 4 test files)
 - 👤 Identity & Security audit (MFA status, Conditional Access policies, OAuth applications, RBAC)
+- 🛡 Conditional Access policy creation (MFA by terminal) in ReadWrite mode
+- 🔁 Exchange Online management (mailboxes, quotas, redirects, delegated permissions)
+- 🔑 Break-Glass (emergency admin) configuration persisted in JSON
 
 ## OAuth Audit Modes (H3)
 
 - **ReadOnly** (default) — scopes restricted to read-only operations, minimizing the attack surface
-- **ReadWrite** — reserved for future write operations (currently warns: no write functions implemented)
+- **ReadWrite** — enables write operations: Conditional Access policy creation (MFA) + Break-Glass exclusion. Requests `Policy.ReadWrite.ConditionalAccess` in addition to read scopes.
 
 ```powershell
-.\Scripts\Sherl0ck_v4.1.ps1                          # ReadOnly mode (default)
-.\Scripts\Sherl0ck_v4.1.ps1 -AuditMode ReadWrite   # ReadWrite mode
+.\Scripts\Sherl0ck_v5.ps1                          # ReadOnly mode (default)
+.\Scripts\Sherl0ck_v5.ps1 -AuditMode ReadWrite     # ReadWrite mode (CA creation enabled)
+.\Scripts\Sherl0ck_v4.1.ps1                        # Legacy v4.1 entry point (read-only)
 ```
 
 ## Prerequisites
 
 - PowerShell 5.1 or higher
 - Microsoft 365 administrator account
-- Access to the following scopes:
+- Access to the following scopes (ReadOnly):
   - Policy.Read.All
   - User.Read.All
   - Organization.Read.All
@@ -40,6 +44,8 @@
   - AuditLog.Read.All
   - RoleManagement.Read.Directory
   - Application.Read.All
+- Additional scope in ReadWrite mode:
+  - Policy.ReadWrite.ConditionalAccess
 
 ## Installation
 
@@ -51,7 +57,7 @@ cd 365_Adminscript
 
 Run the main script:
 ```powershell
-.\Scripts\Sherl0ck_v4.1.ps1
+.\Scripts\Sherl0ck_v5.ps1
 ```
 
 Required PowerShell modules are downloaded automatically from the official PowerShell Gallery:
@@ -61,16 +67,17 @@ Required PowerShell modules are downloaded automatically from the official Power
 
 To skip automatic module installation (air-gapped/secure environments):
 ```powershell
-.\Scripts\Sherl0ck_v4.1.ps1 -SkipModuleInstall
+.\Scripts\Sherl0ck_v5.ps1 -SkipModuleInstall
 ```
 
 ## Main Menu
 
 ```
 [ 1 ] IDENTITY & SECURITY   (MFA, Conditional Access, OAuth apps, RBAC)
-[ 2 ] EXCHANGE ONLINE        (Mailboxes, Quotas, Redirects)
+[ 2 ] EXCHANGE ONLINE        (Mailboxes, Quotas, Redirects, Permissions)
 [ 3 ] M365 AUDIT             (Complete collection + Excel Export)
-[ 4 ] SESSION LOGS          (Logs & errors)
+[ 4 ] BREAK-GLASS            (Emergency admin account configuration)
+[ 5 ] SESSION LOGS           (Logs & errors)
 [ 0 ] DISCONNECT & QUIT
 ```
 
@@ -79,12 +86,14 @@ To skip automatic module installation (air-gapped/secure environments):
 ```
 365_Adminscript/
 ├── Scripts/
-│   └── Sherl0ck_v4.1.ps1          # Main entry point (no functions defined, imports modules)
+│   ├── Sherl0ck_v5.ps1            # Main entry point v5 (5-menu, imports all modules)
+│   └── Sherl0ck_v4.1.ps1          # Legacy entry point (read-only)
 ├── Modules/
 │   ├── Sherl0ck.Utils.psm1        # Utilities: Convert-EXOSizeToGB, Convert-BytesToGB, Invoke-SafeOpen, Get-UniqueFilePath
 │   ├── Sherl0ck.UI.psm1           # User interface: Mask-SensitiveData, Add-SessionLog, Show-SessionLogs
 │   ├── Sherl0ck.Auth.psm1         # Graph/Exchange auth: Connect-O365Core, Connect-O365Exchange, Verify-TrustedModule, Invoke-BrowserPrivate, Get-REQUIRED_MODULES
-│   └── Sherl0ck.Audit.psm1        # Audit: Get-GraphData, Export-OneDriveUsage, Export-FullAuditExcel, Show-MenuAudit, Get-MFAStatus, Get-ConditionalAccessPolicies, Get-OAuthApplications, Get-RoleBasedAccess, Export-IdentitySecurityExcel
+│   ├── Sherl0ck.Audit.psm1        # Audit: Get-GraphData, Export-OneDriveUsage, Export-FullAuditExcel, Show-MenuAudit, identity security stubs
+│   └── Sherl0ck.Exchange.psm1     # Exchange: Show-MenuExchange (mailboxes, quotas, redirects, permissions, CSV export)
 ├── Config/
 │   └── config.json.example        # Configuration template (SkipModuleInstall, ModuleSource)
 ├── Tests/
@@ -103,31 +112,34 @@ Use Pester to validate each module independently:
 Invoke-Pester -Path ./Tests/
 ```
 
-## Applied Corrections (Sherl0ck v4.1)
+## Applied Corrections (Sherl0ck v5)
 
 - **H1** : MSAL conflict handling (Graph <> Exchange) — protects against authentication context collisions ✅
 - **H2** : Secure logging — masks sensitive UPNs via `Mask-SensitiveData` ✅
 - **H3** : OAuth scope separation — ReadOnly/ReadWrite modes with dynamic `AuditMode` parameter ✅
-  - **Point 6** : ReadWrite privileged scopes **removed** — unused by any function. ReadWrite mode still accepted as parameter but warns that no write operations are available.
+  - ReadWrite now conditionally requests `Policy.ReadWrite.ConditionalAccess` for CA creation.
 - **H4** : Module pinning with `MinimumVersion` + PSGallery source verification via `Verify-TrustedModule` ✅
-- **M1** : UPN masking (`***`) + **portable AES key encryption** (key file in separate `%LOCALAPPDATA%\Sherl0ck_Secrets\` directory with explicit NTFS ACL — key never co-located with logs) via `ConvertFrom-SecureString -Key` ✅
-- **M2** : `Get-UniqueFilePath` — checks existence before write + increments filename (`_1`, `_2`, ...) ✅
-- **M3** : `Find-Module` source + version verification + **real SHA-512 hash comparison** via `Save-Module` + `Get-FileHash` vs `PackageHash` + `-SkipModuleInstall` switch ✅
-- **L1** : Modular refactoring into PowerShell modules (Utils, UI, Auth, Audit) ✅
-- **L2** : Extended unit tests (Pester) — test stubs for all 4 modules ✅
+- **M1** : UPN masking (`***`) + **portable AES key encryption** ✅
+- **M2** : `Get-UniqueFilePath` — collision-safe file paths ✅
+- **M3** : `Find-Module` source + version verification + **real SHA-512 hash comparison** ✅
+- **L1** : Modular refactoring into PowerShell modules (Utils, UI, Auth, Audit, Exchange) ✅
+- **L2** : Extended unit tests (Pester) ✅
 - **L3** : Simulation mode `-WhatIf` ❌ To do
-- **FIX-3** : Browser fallback (Edge→Firefox→Chrome) + explicit error if none available ✅
-- **FIX-6** : ReadWrite privileged scopes removed — no function consumes them ✅
-- **Point 8** : Identity & Security audit stubs (MFA, CA, OAuth, RBAC) + extended menu [1] ✅
-- **Point 4** : Graph $batch (POST /v1.0/$batch, 20 req/batch) for Export-OneDriveUsage — reduces API calls by ~20x ✅
-- **Point 2** : Set-StrictMode -Off → -Version 3.0 (enables variable/property strict checking) ✅
-- **Point 1** : DPAPI-only encryption → portable AES key (key file in separate `Sherl0ck_Secrets` directory + explicit NTFS ACL) ✅
-- **FIX-7** : Silent error loss in Export-OneDriveUsage → Add-SessionLog + ODStats entry ✅
-- **Audit findings** : 15 empty catch blocks replaced with `Add-SessionLog` (error tracing) ✅
+- **FIX-3** : Browser fallback (Edge→Firefox→Chrome) ✅
+- **FIX-6** : Privileged scopes now conditionally requested in ReadWrite mode (CA creation) ✅
+- **Point 8** : Identity & Security audit + CA creation (MFA by terminal) ✅
+- **Point 4** : Graph $batch for Export-OneDriveUsage ✅
+- **Point 2** : Set-StrictMode -Version 3.0 ✅
+- **Point 1** : DPAPI-only → portable AES key ✅
+- **FIX-7** : Silent error loss → Add-SessionLog ✅
+- **Audit findings** : 15 empty catch blocks replaced with `Add-SessionLog` ✅
 - **I1** : Configuration externalization (`Config/config.json.example`) ✅
 - **I2** : Multilingual support (fr-FR / en-US) ❌ To do
-- **Point 9** : REQUIRED_MODULE_VERSIONS converted to readonly hash via `Set-Variable -Option ReadOnly` + `Get-REQUIRED_MODULES()` getter function (no longer exported as mutable variable) ✅
+- **Point 9** : REQUIRED_MODULE_VERSIONS readonly hash ✅
 - **I3** : Integrated documentation (help XML comments) ✅
+- **v5** : Break-Glass config persisted in JSON (`Sherl0ck_Config.json`) ✅
+- **v5** : Exchange module (quotas, redirects, delegated permissions, CSV export) ✅
+- **v5** : Entry point `Sherl0ck_v5.ps1` with 5-menu (Identity, Exchange, Audit, Break-Glass, Logs) ✅
 
 ## License
 
@@ -153,8 +165,8 @@ Developed by g33ky00 — based on the Sherl0ck v4.1 tool.
 
 ## Stack
 
-- **Language:** PowerShell 7+
-- **Modules:** Microsoft.Graph, ExchangeOnlineManagement
+- **Language:** PowerShell 5.1+ (7+ recommended)
+- **Modules:** Microsoft.Graph, ExchangeOnlineManagement, ImportExcel
 - **Testing:** Pester
 - **CI:** UCQCS v4.5 (GitHub Actions)
 
