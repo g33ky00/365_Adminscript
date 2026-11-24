@@ -32,7 +32,7 @@ Describe 'Connect-O365Core' {
     It 'Should respect SkipModuleInstall flag' {
         # This is a stub test — actual auth requires interactive login
         # The function should return early if module is missing and SkipModuleInstall is set
-        Set-Item -Path "variable:GLOBAL:GRAPH_CONNECTED" -Value $false -Scope Global
+        $GLOBAL:GRAPH_CONNECTED = $false
         { Connect-O365Core -AuditMode 'ReadOnly' -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }
@@ -40,7 +40,7 @@ Describe 'Connect-O365Core' {
 Describe 'Connect-O365Exchange' {
     It 'Should respect SkipModuleInstall flag' {
         # This is a stub test — actual auth requires interactive login
-        Set-Item -Path "variable:GLOBAL:EXO_CONNECTED" -Value $false -Scope Global
+        $GLOBAL:EXO_CONNECTED = $false
         { Connect-O365Exchange -SkipModuleInstall -ErrorAction SilentlyContinue } | Should -Not -Throw
     }
 }

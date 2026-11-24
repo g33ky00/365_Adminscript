@@ -32,7 +32,8 @@
     Part of the 365_Adminscript modular architecture.
 #>
 function Mask-SensitiveData {
-    param([string]$InputText)
+    param([AllowNull()][string]$InputText)
+    if ($null -eq $InputText) { return $null }
     if (-not $InputText) { return $InputText }
     $Masked = $InputText -replace '(?i)\b[\w\.\-\+]+@[\w\.\-]+\.\w{2,}\b', '***'
     return $Masked
@@ -191,8 +192,14 @@ function Get-LocalizedString {
         [Parameter(Mandatory)][string]$Key,
         [string]$Language = 'en-US'
     )
-    $localePath = Join-Path $PSScriptRoot "..\\Locales\\$Language.json"
-    if (-not (Test-Path $localePath)) { $localePath = Join-Path $PSScriptRoot "..\\Locales\\en-US.json" }
+    $moduleDir = Split-Path $PSScriptRoot -Parent
+    $localePath = Join-Path $moduleDir "Locales\\$Language.json"
+    if (-not (Test-Path $localePath)) {
+        $localePath = Join-Path $moduleDir "Locales\\en-US.json"
+    }
+    if (-not (Test-Path $localePath)) {
+        $localePath = Join-Path (Get-Location) "Locales\\$Language.json"
+    }
     try {
         $locale = Get-Content -Path $localePath -Raw -Encoding UTF8 | ConvertFrom-Json
     } catch { return $Key }
