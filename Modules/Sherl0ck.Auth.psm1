@@ -193,17 +193,14 @@ function Connect-O365Core {
         "Application.Read.All"
     )
 
-    # Point 6 fix: Privileged scopes removed — no function in the codebase consumes them.
-    # Surplus permission declared without usage = audit finding.
-    # ReadWrite mode still accepted as parameter for future use but warns:
-    if ($AuditMode -eq 'ReadWrite') {
-        Write-Host "[WARNING] ReadWrite mode requested, but no write functions are currently implemented." -ForegroundColor Yellow
-        Write-Host "[NOTE]   Privileged write scopes are intentionally NOT requested." -ForegroundColor DarkGray
-        Write-Host "[NOTE]   Contact the development team if write operations are required." -ForegroundColor DarkGray
-    }
-
+    # v5: CA creation (write) requires Policy.ReadWrite.ConditionalAccess when ReadWrite mode.
     $Scopes = $ReadOnlyScopes
-    Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
+    if ($AuditMode -eq 'ReadWrite') {
+        Write-Host "[INFO] ReadWrite mode: adding Policy.ReadWrite.ConditionalAccess scope for CA creation." -ForegroundColor Yellow
+        $Scopes += "Policy.ReadWrite.ConditionalAccess"
+    } else {
+        Write-Host "[AUTH] Mode ReadOnly: scopes restricted to read-only" -ForegroundColor Green
+    }
 
     Write-Host "`n[AUTH] Opening browser in private browsing..." -ForegroundColor Yellow
     # Point 3: Fallback cascade: Edge → Firefox → Chrome → explicit error
