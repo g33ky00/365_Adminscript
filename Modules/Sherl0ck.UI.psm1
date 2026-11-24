@@ -5,7 +5,8 @@
 .DESCRIPTION
     Contains session logging with M1 security: UPN masking via
     Mask-SensitiveData and log encryption via ConvertFrom-SecureString
-    using a portable AES key (key file) for cross-machine compatibility.
+    using a portable AES key stored in SecretManagement vault 'Sherl0ckVault'.
+    Exports can be protected/unprotected with AES-256-GCM + PBKDF2.
 
 .PARAMETER InputText
     The text to mask (UPNs/emails replaced with ***).
@@ -29,13 +30,11 @@
 
 .NOTES
     Part of the 365_Adminscript modular architecture.
-    Log encryption uses a key file stored alongside the logs directory,
-    enabling decryption on any machine with access to the key file.
 #>
 function Mask-SensitiveData {
     param([string]$InputText)
     if (-not $InputText) { return $InputText }
-    $Masked = $InputText -replace '(?i)\b[\w\.\-]+@[\w\.\-]+\.\w+\b', '***'
+    $Masked = $InputText -replace '(?i)\b[\w\.\-\+]+@[\w\.\-]+\.\w{2,}\b', '***'
     return $Masked
 }
 
@@ -48,41 +47,113 @@ function Add-SessionLog {
     $LogEntry = "[$(Get-Date -Format 'HH:mm:ss')] [$Level] $SafeMessage"
     if ($SafeDetails) { $LogEntry += " | DETAILS: $SafeDetails" }
     $GLOBAL:SESSION_LOGS += $LogEntry
-    try {
-        # M1: Encrypt log via portable AES key stored in a SEPARATE secrets directory
-        # Point 1 fix (revised): Key file stored in $GLOBAL:LOG_KEY_DIR, NOT in $GLOBAL:LOG_DIR.
-        # This prevents an attacker with log directory access from also obtaining the key.
-        # Plus explicit ACL with FileSystemAccessRule for the current user (not just inheritance removal).
-        $KeyFilePath = Join-Path $GLOBAL:LOG_KEY_DIR "log_key.key"
-        if (-not (Test-Path $KeyFilePath)) {
-            # Generate a random 256-bit AES key on first run
-            $Key = New-Object byte[] 32
-            [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($Key)
-            $Key | Out-File -FilePath $KeyFilePath -Encoding ASCII
 
-            # Point 1 fix (revised): Explicit ACL — current user only, full control, no inheritance
-            $acl = Get-Acl -Path $KeyFilePath
-            $acl.SetAccessRuleProtection($true, $false)  # Disable inheritance, remove inherited rules
-            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-            $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-                $currentUser,
-                "FullControl",
-                "None",
-                "None",
-                "Allow"
-            )
-            $acl.SetOwner($currentUser)
-            $acl.AddAccessRule($accessRule)
-            Set-Acl -Path $KeyFilePath -AclObject $acl
-        }
-        $Key = Get-Content -Path $KeyFilePath -Encoding ASCII | ForEach-Object { [byte]$_ }
-        $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
-        $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
-        Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
+    # Require SecretManagement + Sherl0ckVault — no plaintext fallback
+    if (-not (Get-Module -ListAvailable -Name Microsoft.PowerShell.SecretManagement)) {
+        throw "Microsoft.PowerShell.SecretManagement module is required but not available."
     }
-    catch {
-        # Fallback: log in plaintext if encryption fails
-        try { Add-Content -Path $GLOBAL:LOG_FILE -Value $LogEntry -Encoding UTF8BOM } catch { Add-SessionLog "ERROR" "Log write fallback" $_.Exception.Message }
+    Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
+    $vault = Get-SecretVault -Name 'Sherl0ckVault' -ErrorAction SilentlyContinue
+    if (-not $vault) {
+        throw "SecretManagement vault 'Sherl0ckVault' is not available. Refusing to run."
+    }
+
+    $secretName = 'Sherl0ckLogKey'
+    $keyB64 = $null
+    try { $keyB64 = Get-Secret -Name $secretName -Vault 'Sherl0ckVault' -AsPlainText -ErrorAction Stop } catch { $keyB64 = $null }
+    if (-not $keyB64) {
+        $Key = New-Object byte[] 32
+        [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($Key)
+        $keyB64 = [Convert]::ToBase64String($Key)
+        Set-Secret -Name $secretName -Secret $keyB64 -Vault 'Sherl0ckVault' -ErrorAction Stop | Out-Null
+    }
+    $Key = [Convert]::FromBase64String($keyB64)
+
+    $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
+    $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
+    Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
+}
+
+function Protect-Export {
+    param(
+        [Parameter(Mandatory)][string]$InputPath,
+        [Parameter(Mandatory)][string]$OutputPath,
+        [System.Security.SecureString]$Password
+    )
+    if (-not $Password) { $Password = Read-Host -Prompt 'Export password' -AsSecureString }
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    try {
+        $text = Get-Content -Path $InputPath -Raw
+        $masked = Mask-SensitiveData -InputText $text
+        $bytes = [Text.Encoding]::UTF8.GetBytes($masked)
+
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $salt = New-Object byte[] 16; $rng.GetBytes($salt)
+        $nonce = New-Object byte[] 12; $rng.GetBytes($nonce)
+        $pbkdf = New-Object Security.Cryptography.Rfc2898DeriveBytes($plain, $salt, 100000)
+        $key = $pbkdf.GetBytes(32)
+
+        $cipher = New-Object byte[] $bytes.Length
+        $tag = New-Object byte[] 16
+        $aes = New-Object Security.Cryptography.AesGcm($key)
+        $aes.Encrypt($nonce, $bytes, $cipher, $tag)
+
+        $header = [Text.Encoding]::ASCII.GetBytes('SHERL0CK-ENC-v1')
+        $out = New-Object byte[] ($header.Length + 16 + 12 + $cipher.Length + 16)
+        [Array]::Copy($header, 0, $out, 0, $header.Length)
+        [Array]::Copy($salt, 0, $out, $header.Length, 16)
+        [Array]::Copy($nonce, 0, $out, $header.Length + 16, 12)
+        [Array]::Copy($cipher, 0, $out, $header.Length + 28, $cipher.Length)
+        [Array]::Copy($tag, 0, $out, $header.Length + 28 + $cipher.Length, 16)
+        [IO.File]::WriteAllBytes($OutputPath, $out)
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
+function Unprotect-Export {
+    param(
+        [Parameter(Mandatory)][string]$InputPath,
+        [string]$OutputPath,
+        [System.Security.SecureString]$Password
+    )
+    if (-not $Password) { $Password = Read-Host -Prompt 'Export password' -AsSecureString }
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    try {
+        $data = [IO.File]::ReadAllBytes($InputPath)
+        $header = [Text.Encoding]::ASCII.GetBytes('SHERL0CK-ENC-v1')
+        $headerLen = $header.Length
+        if ($data.Length -lt $headerLen + 16 + 12 + 16) { throw "Invalid encrypted file." }
+        for ($i = 0; $i -lt $headerLen; $i++) {
+            if ($data[$i] -ne $header[$i]) { throw "Invalid file header." }
+        }
+        $salt = New-Object byte[] 16
+        $nonce = New-Object byte[] 12
+        $tag = New-Object byte[] 16
+        [Array]::Copy($data, $headerLen, $salt, 0, 16)
+        [Array]::Copy($data, $headerLen + 16, $nonce, 0, 12)
+        $cipherLen = $data.Length - $headerLen - 16 - 12 - 16
+        $cipher = New-Object byte[] $cipherLen
+        [Array]::Copy($data, $headerLen + 28, $cipher, 0, $cipherLen)
+        [Array]::Copy($data, $data.Length - 16, $tag, 0, 16)
+
+        $pbkdf = New-Object Security.Cryptography.Rfc2898DeriveBytes($plain, $salt, 100000)
+        $key = $pbkdf.GetBytes(32)
+        $aes = New-Object Security.Cryptography.AesGcm($key)
+        $plainBytes = New-Object byte[] $cipherLen
+        $aes.Decrypt($nonce, $cipher, $tag, $plainBytes)
+        $text = [Text.Encoding]::UTF8.GetString($plainBytes)
+        if ($OutputPath) {
+            Set-Content -Path $OutputPath -Value $text -Encoding UTF8
+        } else {
+            return $text
+        }
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
 }
 
@@ -114,4 +185,4 @@ function Get-LocalizedString {
     return $Key
 }
 
-Export-ModuleMember -Function Mask-SensitiveData, Add-SessionLog, Show-SessionLogs, Get-LocalizedString
+Export-ModuleMember -Function Mask-SensitiveData, Add-SessionLog, Show-SessionLogs, Get-LocalizedString, Protect-Export, Unprotect-Export

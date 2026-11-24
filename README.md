@@ -7,7 +7,8 @@
 - 🔐 Graph & Exchange authentication via device code flow
 - 🧾 Full audit export to Excel (Users, MFA, Devices, Licenses, Domains, OneDrive)
 - 📊 Intelligent Graph API throttling management
-- 🧼 Secure logging that masks sensitive UPNs + portable AES key encryption (key file in separate `Sherl0ck_Secrets` directory with explicit NTFS ACL)
+- 🧼 Secure logging that masks sensitive UPNs + encrypted session logs (AES key via SecretManagement vault, no plaintext fallback)
+- 🔐 Encrypted exports at rest (Protect-Export/Unprotect-Export, AES-256-GCM, password-based, PBKDF2 100k)
 - 📁 MSAL authentication conflict handling (Graph <> Exchange)
 - 🛡 PowerShell modules pinned and verified via official PSGallery (MinimumVersion + SHA-512 hash comparison)
 - 🧱 Modular and testable architecture with Pester (5 modules + entry points + 4 test files)
@@ -47,6 +48,8 @@
 - Additional scope in ReadWrite mode:
   - Policy.ReadWrite.ConditionalAccess
 
+**Note on export encryption:** By default, all exports are encrypted at rest using `Protect-Export`/`Unprotect-Export` (AES-256-GCM, PBKDF2 100k iterations, password-based). Use `-NoEncrypt` to produce a plaintext export (emits a warning). The password is always transmitted via a separate channel.
+
 ## Installation
 
 Clone the repository:
@@ -80,6 +83,19 @@ To skip automatic module installation (air-gapped/secure environments):
 [ 5 ] SESSION LOGS           (Logs & errors)
 [ 0 ] DISCONNECT & QUIT
 ```
+
+## Export Encryption
+
+By default, all exports are encrypted at rest using `Protect-Export`/`Unprotect-Export`:
+
+- **Algorithm:** AES-256-GCM
+- **Key derivation:** PBKDF2 with 100,000 iterations
+- **Password-based:** a password is required to encrypt/decrypt; if not supplied, you are prompted.
+- **Decryption:** use `Unprotect-Export` with the same password to restore the plaintext file.
+
+To produce a plaintext (unencrypted) export, pass the `-NoEncrypt` switch — this emits a warning, since the resulting file is stored in clear text.
+
+The export password is always transmitted via a separate channel and is never logged or embedded in the export filename.
 
 ## Project Structure
 

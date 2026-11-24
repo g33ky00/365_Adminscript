@@ -40,15 +40,20 @@
 
 function Get-GraphData {
     param([string]$Uri)
-    $Data = @(); $Query = $Uri
+    $Data = @(); $Query = $Uri; $Complete = $true; $TruncatedAt = $null
     while ($Query) {
         try {
             $Resp = Invoke-MgGraphRequest -Uri $Query -Method GET -ErrorAction Stop
             if ($Resp.value) { $Data += $Resp.value }
             $Query = $Resp.'@odata.nextLink'
-        } catch { Add-SessionLog "ERROR" "Graph Query ($Uri)" "$($_.Exception.Message)"; break }
+        } catch {
+            $Complete = $false
+            $TruncatedAt = $Query
+            Add-SessionLog "ERROR" "Graph Query ($Uri)" "$($_.Exception.Message)"
+            throw $_.Exception.Message
+        }
     }
-    return $Data
+    return [PSCustomObject]@{ Data = $Data; Complete = $Complete; TruncatedAt = $TruncatedAt }
 }
 
 function Export-OneDriveUsage {
@@ -70,12 +75,19 @@ function Export-OneDriveUsage {
         Collects OneDrive storage for all users and exports to CSV.
     #>
     param(
-        [switch]$SkipModuleInstall
+        [switch]$SkipModuleInstall,
+        [switch]$NoEncrypt,
+        [string]$ExportPassword
     )
 
     Write-Host "`n[STORAGE] Full OneDrive analysis (All users)...`n[STORAGE] Using Graph `$batch (20 requests/batch)" -ForegroundColor Cyan
     try {
-        $Users = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999"
+        $UsersResult = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName&`$top=999"
+        if (-not $UsersResult.Complete) {
+            Write-Host " [WARNING] Partial Graph data: $($UsersResult.TruncatedAt)" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-OneDriveUsage" "Incomplete data at $($UsersResult.TruncatedAt)"
+        }
+        $Users = $UsersResult.Data
         $ODStats = @(); $Count = 0; $MaxRetries = 3; $BatchSize = 20
 
         # Point 4 fix: Use POST /v1.0/$batch to reduce Graph API calls by ~20x
@@ -132,7 +144,28 @@ function Export-OneDriveUsage {
                 }
                 catch {
                     if ($_.Exception.Message -match "429|Too Many Requests") {
-                        $RetryCount++; Start-Sleep -Seconds 5
+                        $RetryCount++
+                        $Wait = 0
+                        # Try parse Retry-After header
+                        try {
+                            $Headers = $_.Exception.Response.Headers
+                            if ($Headers -and $Headers['Retry-After']) {
+                                $Wait = [int]$Headers['Retry-After']
+                            }
+                        } catch { $Wait = 0 }
+                        if ($Wait -le 0) {
+                            $Wait = [Math]::Min([Math]::Pow(2, $RetryCount) * 5, 60)
+                        }
+                        if ($RetryCount -le $MaxRetries) {
+                            Start-Sleep -Seconds $Wait
+                        } else {
+                            $errMsg = $_.Exception.Message
+                            Add-SessionLog "ERROR" "OneDrive batch failed" $errMsg
+                            foreach ($U in $Chunk) {
+                                $ODStats += [PSCustomObject]@{ User = $U.displayName; UPN = $U.userPrincipalName; Status = "Error ($errMsg)"; Used_GB = 0; Total_GB = 0 }
+                            }
+                            Write-Host " [ERROR]" -ForegroundColor Red; $Success = $true
+                        }
                     } else {
                         # FIX: Log Graph errors instead of silent data loss
                         $errMsg = $_.Exception.Message
@@ -149,13 +182,21 @@ function Export-OneDriveUsage {
         # M2: Collision-safe file path
         $Path = Get-UniqueFilePath -BasePath (Join-Path $GLOBAL:AUDIT_DIR "Sherl0ck_OneDrive_Storage_$(Get-Date -Format yyyyMMdd_HHmm).csv")
         $ODStats | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8BOM
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-OneDriveUsage" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $Path -Password $ExportPassword
+        }
         return $ODStats
     } catch { Write-Host " [FAILED] $($_.Exception.Message)" -ForegroundColor Red; Add-SessionLog "ERROR" "Export-OneDriveUsage" $_.Exception.Message }
 }
 
 function Export-FullAuditExcel {
     param(
-        [switch]$SkipModuleInstall
+        [switch]$SkipModuleInstall,
+        [switch]$NoEncrypt,
+        [string]$ExportPassword
     )
 
     Write-Host "`n[EXCEL AUDIT] Generating global workbook..." -ForegroundColor Cyan
@@ -180,28 +221,45 @@ function Export-FullAuditExcel {
 
     try {
         Write-Host " - Collecting Users..." -ForegroundColor DarkGray
-        $Users = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName,mail,usageLocation,assignedLicenses,userType,accountEnabled"
+        $UsersR = Get-GraphData "v1.0/users?`$select=id,displayName,userPrincipalName,mail,usageLocation,assignedLicenses,userType,accountEnabled"
+        if (-not $UsersR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $UsersR.TruncatedAt }
+        $Users = $UsersR.Data
         $Users | Select-Object displayName, userPrincipalName, accountEnabled, userType | Export-Excel -Path $XlsxPath -WorksheetName "Users" -AutoSize -AutoFilter
 
         Write-Host " - Collecting Licenses..." -ForegroundColor DarkGray
-        $Skus = Get-GraphData "v1.0/subscribedSkus"
+        $SkusR = Get-GraphData "v1.0/subscribedSkus"
+        if (-not $SkusR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $SkusR.TruncatedAt }
+        $Skus = $SkusR.Data
         $Skus | Select-Object skuPartNumber, @{n='Total';e={$_.prepaidUnits.enabled}}, @{n='Consumed';e={$_.consumedUnits}} | Export-Excel -Path $XlsxPath -WorksheetName "Licenses" -AutoSize -AutoFilter -Append
 
         Write-Host " - Collecting MFA Status..." -ForegroundColor DarkGray
-        $MFA = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        if (-not $MFAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $MFAR.TruncatedAt }
+        $MFA = $MFAR.Data
         $MFA | Select-Object userDisplayName, userPrincipalName, isMfaRegistered, @{n='Methods';e={$_.methodsRegistered -join ', '}} | Export-Excel -Path $XlsxPath -WorksheetName "MFA" -AutoSize -AutoFilter -Append
 
         Write-Host " - Collecting Devices..." -ForegroundColor DarkGray
-        $Devices = Get-GraphData "v1.0/devices"
+        $DevicesR = Get-GraphData "v1.0/devices"
+        if (-not $DevicesR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $DevicesR.TruncatedAt }
+        $Devices = $DevicesR.Data
         if ($Devices) { $Devices | Select-Object displayName, operatingSystem, isCompliant, trustType, approximateLastSignInDateTime | Export-Excel -Path $XlsxPath -WorksheetName "Devices" -AutoSize -AutoFilter -Append }
 
         Write-Host " - Collecting Domains..." -ForegroundColor DarkGray
-        $Domains = Get-GraphData "v1.0/domains"
+        $DomainsR = Get-GraphData "v1.0/domains"
+        if (-not $DomainsR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Export-FullAuditExcel" $DomainsR.TruncatedAt }
+        $Domains = $DomainsR.Data
         $Domains | Select-Object id, isVerified, isDefault | Export-Excel -Path $XlsxPath -WorksheetName "Domains" -AutoSize -AutoFilter -Append
 
         Write-Host " - Collecting OneDrive..." -ForegroundColor DarkGray
         $OD = Export-OneDriveUsage -SkipModuleInstall:$SkipModuleInstall
         if ($OD) { $OD | Export-Excel -Path $XlsxPath -WorksheetName "OneDrive" -AutoSize -AutoFilter -Append }
+
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-FullAuditExcel" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+        }
 
         Write-Host "`n[SUCCESS] Excel audit complete: $XlsxPath" -ForegroundColor Green
         Add-SessionLog "ACTION" "Excel export successful" $XlsxPath
@@ -260,7 +318,9 @@ function Get-MFAStatus {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting MFA status..." -ForegroundColor Cyan
     try {
-        $MFA = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        $MFAR = Get-GraphData "v1.0/reports/authenticationMethods/userRegistrationDetails"
+        if (-not $MFAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-MFAStatus" $MFAR.TruncatedAt }
+        $MFA = $MFAR.Data
         $Summary = $MFA | Group-Object -Property isMfaRegistered | ForEach-Object {
             [PSCustomObject]@{ Status = if ($_.Name -eq "True") {"MFA Registered"} else {"MFA Not Registered"}; Count = $_.Count }
         }
@@ -292,7 +352,9 @@ function Get-ConditionalAccessPolicies {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting Conditional Access policies..." -ForegroundColor Cyan
     try {
-        $CAPolicies = Get-GraphData "v1.0/identity/conditionalAccess/policies"
+        $CAR = Get-GraphData "v1.0/identity/conditionalAccess/policies"
+        if (-not $CAR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-ConditionalAccessPolicies" $CAR.TruncatedAt }
+        $CAPolicies = $CAR.Data
         $CAPolicies | ForEach-Object {
             $state = if ($_.state -eq "enabledForReportingButNotEnforced") {"Report-only"} elseif ($_.state -eq "enabled") {"Enforced"} else { $_.state }
             $color = if ($state -eq "Report-only") {"Yellow"} elseif ($state -eq "Enforced") {"Green"} else {"DarkGray"}
@@ -325,7 +387,9 @@ function Get-OAuthApplications {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting OAuth applications..." -ForegroundColor Cyan
     try {
-        $Apps = Get-GraphData "v1.0/applications?`$select=displayName,appId,web,spa,signInAudience,requiredResourceAccess"
+        $AppsR = Get-GraphData "v1.0/applications?`$select=displayName,appId,web,spa,signInAudience,requiredResourceAccess"
+        if (-not $AppsR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-OAuthApplications" $AppsR.TruncatedAt }
+        $Apps = $AppsR.Data
         $Apps | ForEach-Object {
             $redirects = ($_.web.redirectUris -join ", ") + ($_.spa.redirectUris -join ", ")
             Write-Host "  $($_.displayName) | $($_.appId)" -ForegroundColor DarkGray
@@ -357,7 +421,9 @@ function Get-RoleBasedAccess {
     param([switch]$SkipModuleInstall)
     Write-Host "`n[IDENTITY] Collecting role-based access..." -ForegroundColor Cyan
     try {
-        $Roles = Get-GraphData "v1.0/directoryRoles?`$expand=members"
+        $RolesR = Get-GraphData "v1.0/directoryRoles?`$expand=members"
+        if (-not $RolesR.Complete) { Write-Host " [WARNING] Partial data" -ForegroundColor Yellow; Add-SessionLog "WARNING" "Get-RoleBasedAccess" $RolesR.TruncatedAt }
+        $Roles = $RolesR.Data
         $PrivilegedRoles = @("62e90394-69f5-423b-847e-217ed8c7fd18", "72fafb87-16d5-45d8-91ac-1dcd94a8a94e", "88d87e72-8544-4bbd-9b9e-06d0361df1aa")
         $Roles | ForEach-Object {
             $Members = $_.members | ForEach-Object { $_.userPrincipalName } | Where-Object { $_ }
@@ -393,7 +459,7 @@ function Export-IdentitySecurityExcel {
         PS> Export-IdentitySecurityExcel
         Generates Identity_Security_Audit_<tenant>_<date>.xlsx
     #>
-    param([switch]$SkipModuleInstall)
+    param([switch]$SkipModuleInstall, [switch]$NoEncrypt, [string]$ExportPassword)
 
     $DateStr = Get-Date -Format "yyyyMMdd_HHmm"
     # M2: Collision-safe file path
@@ -417,6 +483,13 @@ function Export-IdentitySecurityExcel {
         Write-Host " - Role-Based Access..." -ForegroundColor DarkGray
         $Roles = Get-RoleBasedAccess -SkipModuleInstall:$SkipModuleInstall
         if ($Roles) { $Roles | Select-Object displayName, id | Export-Excel -Path $XlsxPath -WorksheetName "RBAC" -AutoSize -AutoFilter -Append }
+
+        if ($NoEncrypt) {
+            Write-Host " [WARNING] Export non chiffré — données sensibles exposées" -ForegroundColor Yellow
+            Add-SessionLog "WARNING" "Export-IdentitySecurityExcel" "Export non chiffré — données sensibles exposées"
+        } else {
+            Protect-Export -FilePath $XlsxPath -Password $ExportPassword
+        }
 
         Write-Host "`n[SUCCESS] Identity audit complete: $XlsxPath" -ForegroundColor Green
         Add-SessionLog "ACTION" "Identity security export successful" $XlsxPath
