@@ -8,6 +8,8 @@
 #>
 
 # Import the audit module before testing
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Utils.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.UI.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\Modules\Sherl0ck.Audit.psm1") -Force
 
 Describe 'Get-MFAStatus' {

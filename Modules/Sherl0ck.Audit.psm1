@@ -38,6 +38,16 @@
     Part of the 365_Adminscript modular architecture.
 #>
 
+# Import dependencies if not already loaded
+if (-not (Get-Command Add-SessionLog -ErrorAction SilentlyContinue)) {
+    $uiModule = Join-Path $PSScriptRoot "Sherl0ck.UI.psm1"
+    if (Test-Path $uiModule) { Import-Module $uiModule -Force -ErrorAction SilentlyContinue }
+}
+if (-not (Get-Command Get-UniqueFilePath -ErrorAction SilentlyContinue)) {
+    $utilsModule = Join-Path $PSScriptRoot "Sherl0ck.Utils.psm1"
+    if (Test-Path $utilsModule) { Import-Module $utilsModule -Force -ErrorAction SilentlyContinue }
+}
+
 function Get-GraphData {
     param([string]$Uri)
     $Data = @(); $Query = $Uri; $Complete = $true; $TruncatedAt = $null

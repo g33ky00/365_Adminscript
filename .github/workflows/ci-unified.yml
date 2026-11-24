@@ -30,6 +30,12 @@ jobs:
         run: Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser
         shell: pwsh
 
+      - name: Install SecretManagement
+        run: |
+          Install-Module Microsoft.PowerShell.SecretManagement -Force -SkipPublisherCheck -Scope CurrentUser
+          Register-SecretVault -Name 'Sherl0ckVault' -ModuleName Microsoft.PowerShell.SecretManagement -DefaultVault
+        shell: pwsh
+
       - name: Run Pester tests
         run: |
           $config = New-PesterConfiguration
