@@ -71,7 +71,7 @@ function Add-SessionLog {
 
     $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
     $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
-    if ($GLOBAL:LOG_FILE) {
+    if ($GLOBAL:LOG_FILE -and $Encrypted) {
         $logDir = Split-Path $GLOBAL:LOG_FILE -Parent
         if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
         Add-Content -Path $GLOBAL:LOG_FILE -Value $Encrypted -Encoding UTF8BOM
