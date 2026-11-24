@@ -69,7 +69,9 @@ function Add-SessionLog {
     }
     $Key = [Convert]::FromBase64String($keyB64)
 
-    $SecureLog = $LogEntry | ConvertTo-SecureString -AsPlainText -Force
+    $SecureLog = New-Object System.Security.SecureString
+    $LogEntry.ToCharArray() | ForEach-Object { $SecureLog.AppendChar($_) }
+    $SecureLog.MakeReadOnly()
     $Encrypted = $SecureLog | ConvertFrom-SecureString -Key $Key
     if ($GLOBAL:LOG_FILE -and $Encrypted) {
         $logDir = Split-Path $GLOBAL:LOG_FILE -Parent

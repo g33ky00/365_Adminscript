@@ -197,7 +197,9 @@ function Export-OneDriveUsage {
             Add-SessionLog "WARNING" "Export-OneDriveUsage" "Export non chiffré — données sensibles exposées"
         } else {
             if ($ExportPassword) {
-                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                $SecureExportPassword = New-Object System.Security.SecureString
+                $ExportPassword.ToCharArray() | ForEach-Object { $SecureExportPassword.AppendChar($_) }
+                $SecureExportPassword.MakeReadOnly()
                 Protect-Export -InputPath $Path -Password $SecureExportPassword
             } else {
                 Protect-Export -InputPath $Path
@@ -274,7 +276,9 @@ function Export-FullAuditExcel {
             Add-SessionLog "WARNING" "Export-FullAuditExcel" "Export non chiffré — données sensibles exposées"
         } else {
             if ($ExportPassword) {
-                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                $SecureExportPassword = New-Object System.Security.SecureString
+                $ExportPassword.ToCharArray() | ForEach-Object { $SecureExportPassword.AppendChar($_) }
+                $SecureExportPassword.MakeReadOnly()
                 Protect-Export -InputPath $XlsxPath -Password $SecureExportPassword
             } else {
                 Protect-Export -InputPath $XlsxPath
@@ -509,7 +513,9 @@ function Export-IdentitySecurityExcel {
             Add-SessionLog "WARNING" "Export-IdentitySecurityExcel" "Export non chiffré — données sensibles exposées"
         } else {
             if ($ExportPassword) {
-                $SecureExportPassword = ConvertTo-SecureString -String $ExportPassword -AsPlainText -Force
+                $SecureExportPassword = New-Object System.Security.SecureString
+                $ExportPassword.ToCharArray() | ForEach-Object { $SecureExportPassword.AppendChar($_) }
+                $SecureExportPassword.MakeReadOnly()
                 Protect-Export -InputPath $XlsxPath -Password $SecureExportPassword
             } else {
                 Protect-Export -InputPath $XlsxPath
